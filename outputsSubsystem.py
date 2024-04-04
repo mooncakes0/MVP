@@ -10,7 +10,7 @@ things to do:
 """
 
 import time
-import sys
+import inputsSubsystem
 from pymata4 import pymata4 as pm
 
 # list of pins needed for each light system
@@ -26,7 +26,8 @@ def traffic_operation(board):
     while True:
         try:
             # the actual function of the lights
-            # stage 1:
+            # stage 1
+            print("stage 1")
             board.digital_write(mainLights[1], 1)
             board.digital_write(sideLights[0], 1)
             board.digital_write(pedLights[0], 1)
@@ -34,23 +35,27 @@ def traffic_operation(board):
             board.digital_write(mainLights[1], 0)
 
             # stage 2:
+            print("stage 2")
             board.digital_write(mainLights[2], 1)
             time.sleep(3)
             board.digital_write(mainLights[2], 0)
 
             # stage 3:
+            print("stage 3")
             board.digital_write(mainLights[0], 1)
             time.sleep(3)
             board.digital_write(sideLights[0], 0)
             board.digital_write(pedLights[0], 0)
 
             # stage 4:
+            print("stage 4")
             board.digital_write(sideLights[1], 1)
             board.digital_write(pedLights[1], 1)
             time.sleep(5)
             board.digital_write(sideLights[1], 0)
 
             # stage 5:
+            print("stage 5")
             board.digital_write(sideLights[2], 1)
             board.digital_write(pedLights[1], 1) ## need to fix 
             time.sleep(3)
@@ -58,6 +63,7 @@ def traffic_operation(board):
             board.digital_write(pedLights[1], 0)
 
             # stage 6:
+            print("stage 6")
             board.digital_write(sideLights[0], 1)
             board.digital_write(pedLights[0], 1)
             time.sleep(3)
@@ -73,5 +79,16 @@ def traffic_operation(board):
             board.shutdown()
             break
 
+
 board = pm.Pymata4()
-traffic_operation(board)
+
+def main():
+    traffic_operation()
+    output = inputsSubsystem.callback()
+    print(output)
+    
+
+
+
+if __name__ == "__main__":
+    main()

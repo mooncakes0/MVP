@@ -16,14 +16,15 @@ import time
 from pymata4 import pymata4 as pm
 
 # setup variable 
-distance = 2
 trigger = 12
 echo = 13
 button = 4
 board = pm.Pymata4()
 
 def callback(data):
-    print(f"distance in cm: {data[distance]}")
+    distance = data[2]
+    return distance
+    #print(f"distance in cm: {data[distance]}")
 
 def sensors(board, trigger, echo, buttonPin, callback):
     """
@@ -59,6 +60,7 @@ def sensors(board, trigger, echo, buttonPin, callback):
                     pressed += 1
                     print(pressed) 
                 previousState = currentState[0]
+                return pressed
             else:
                 pass
 
