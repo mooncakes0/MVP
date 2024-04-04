@@ -3,4 +3,4 @@
 # creation date: 03/04/2024
 # version: 1.0
 
-print("hello world")
+from pymata4 import pymata4
