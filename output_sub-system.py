@@ -2,8 +2,7 @@
 
 """
 things to do:
-    - for some reason keyboard interupt dont work correctly and the leds for the pedlights just ignores the digital wrtie to 0 and keep
-      the same state as before the keyboard interrupt was pressed BUT SONETIMES IT DOES TURN ALL OF THEM OFF WHAT THE FUCK!!!!!!!!!!!!!!!!!!
+    - the rest of the output requirements 
 
     - make the code more efficent cause rn its kind of just mentualy going through and stuff and its kinda clunky
 
@@ -69,9 +68,10 @@ def traffic_operation(board):
         except KeyboardInterrupt:
             for i in range(4,12):
                 print(i)
+                time.sleep(.1)
                 board.digital_write(i, 0)
             board.shutdown()
-            sys.exit(0)
+            break
 
 board = pm.Pymata4()
 traffic_operation(board)
