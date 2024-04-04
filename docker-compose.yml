@@ -1,0 +1,30 @@
+
+version: "3.8"
+
+volumes:
+  nextcloud_aio_mastercontainer:
+    name: nextcloud_aio_mastercontainer
+    
+services:
+  nextcloud:
+    image: nextcloud/all-in-one:latest
+    restart: unless-stopped
+    container_name: nextcloud-aio-mastercontainer
+    volumes:
+      - nextcloud_aio_mastercontainer:/mnt/docker-aio-config
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /dev/dri:/dev/dri
+    ports:
+      - 11111:8080
+    environment:
+      - APACHE_PORT=11000
+      - NEXTCLOUD_MOUNT= #REDACTED#
+      #- NEXTCLOUD_MOUNT= #REDACTED#
+      - NEXTCLOUD_UPLOAD_LIMIT=10G
+      - NEXTCLOUD_MEMORY_LIMIT=512M
+      - NEXTCLOUD_MAX_TIME=3600
+      # - TALK_PORT=3478
+      - NEXTCLOUD_ADDITIONAL_PHP_EXTENSIONS=imagick
+      - NEXTCLOUD_ENABLE_DRI_DEVICE=true
+      - COLLABORA_SECCOMP_DISABLED=true
+      - NEXTCLOUD_ADDITIONAL_APKS=imagemagick ranger neovim
