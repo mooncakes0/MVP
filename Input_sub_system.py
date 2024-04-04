@@ -3,6 +3,13 @@
 # creation date: 03/04/2024
 # version: 1.0
 
+"""
+still to do:
+    - The rate of distance change that should trigger system alerts for your 
+      project is experimentally determined and justified with results.
+    - im not sure but ik there is more things to do
+"""
+
 # imports
 import sys
 import time
@@ -54,7 +61,7 @@ def sensors(board, trigger, echo, buttonPin, callback):
                 previousState = currentState[0]
             else:
                 pass
-            
+
         except KeyboardInterrupt:
             board.shutdown()
             sys.exit(0)
