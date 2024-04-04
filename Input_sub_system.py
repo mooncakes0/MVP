@@ -12,34 +12,26 @@ from pymata4 import pymata4 as pm
 distance = 2
 trigger = 12
 echo = 13
+button = 4
 board = pm.Pymata4()
 
-# call back function that prints out the distance 
 def callback(data):
     print(f"distance in cm: {data[distance]}")
 
-def Ultrasonic(board, trigger, echo, callback):
-    """
-    set 
-    """
+def sensors(board, trigger, echo, buttonPin, callback):
     board.set_pin_mode_sonar(trigger, echo, callback)
-    while True:
-        try:
-            time.sleep(.01)
-            print(f"distance: {board.sonar_read(trigger)}")
-        except KeyboardInterrupt:
-            board.shutdown()
-            sys.exit(0)
+    board.set_pin_mode_digital_input(buttonPin)
 
-def push_button():
-    board.set_pin_mode_digital_input(4)
     pressed = 0
     previousState = 0
 
     while True:
         try:
             time.sleep(.01)
-            currentState = board.digital_read(4)
+            #print(f"distance: {board.sonar_read(trigger)}")
+
+            time.sleep(.01)
+            currentState = board.digital_read(buttonPin)
             if currentState[0] != previousState:
                 if currentState[0] == 1:
                     pressed += 1
@@ -49,18 +41,14 @@ def push_button():
                 pass
         except KeyboardInterrupt:
             board.shutdown()
-            sys,exit(0)
+            sys.exit(0)
 
-try:
-    #Ultrasonic(board, trigger, echo, callback)
-    push_button()
-    board.shutdown()
-except(KeyboardInterrupt, RuntimeError):
-    sys.exit(0)
-    
+def main():
+    try:
+        sensors(board, trigger, echo, button, callback)
+        board.shutdown()
+    except(KeyboardInterrupt, RuntimeError):
+        sys.exit(0)
 
-
-
-while True:
-    board.digital_read(pin=None)
-    
+if __name__ == "__main__":
+    main()
