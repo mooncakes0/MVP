@@ -19,9 +19,23 @@ def callback(data):
     print(f"distance in cm: {data[distance]}")
 
 def sensors(board, trigger, echo, buttonPin, callback):
+    """
+    set pin modes for the ultrasonic sensor and push button.
+    logic for detecting number of times button has been prese. 
+        Parameters:
+            board: 
+            trigger: 
+            echo:
+            buttonpin: the pin number for the button detection input
+            callback: the call back function for the displaying the distance recorded by ultrasonic sensor in cm
+
+        returns:
+            None as there is no returns
+    """
+    # sets the pin mode for the ultrasonic sensor and the digital pin for the button
     board.set_pin_mode_sonar(trigger, echo, callback)
     board.set_pin_mode_digital_input(buttonPin)
-
+    # default values for variables used later
     pressed = 0
     previousState = 0
 
@@ -30,15 +44,17 @@ def sensors(board, trigger, echo, buttonPin, callback):
             time.sleep(.01)
             #print(f"distance: {board.sonar_read(trigger)}")
 
-            time.sleep(.01)
+            # check between previous and current button state to determin is button has been pressed
             currentState = board.digital_read(buttonPin)
             if currentState[0] != previousState:
+                # check if the current state is 1 or 0 as instances where current and previous are different but current is 0
                 if currentState[0] == 1:
                     pressed += 1
                     print(pressed) 
                 previousState = currentState[0]
             else:
                 pass
+            
         except KeyboardInterrupt:
             board.shutdown()
             sys.exit(0)
