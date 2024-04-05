@@ -7,6 +7,8 @@
 still to do:
     - The rate of distance change that should trigger system alerts for your 
       project is experimentally determined and justified with results.
+    - make an init() function (takes the board as an argument) to intialize any variables and board pins
+    - make sensor read functions that can run alongside the main loop
     - im not sure but ik there is more things to do
 """
 
