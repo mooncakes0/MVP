@@ -7,8 +7,11 @@
 still to do:
     - The rate of distance change that should trigger system alerts for your 
       project is experimentally determined and justified with results.
+
     - make an init() function (takes the board as an argument) to intialize any variables and board pins
+
     - make sensor read functions that can run alongside the main loop
+
     - im not sure but ik there is more things to do
 """
 
@@ -69,6 +72,43 @@ def sensors(board, trigger, echo, buttonPin, callback):
         except KeyboardInterrupt:
             board.shutdown()
             sys.exit(0)
+
+
+# fill this out <<<<<<<<<<
+def init(board: pm.Pymata4) -> None:
+    """Initializes input variables and board pins."""
+    pass
+
+
+# fill this out <<<<<<<<<<
+def shutdown(board: pm.Pymata4) -> None:
+    """Does any required cleanup."""
+
+    # do not call board.shutdown() yet, done in main
+    pass
+
+
+# fill this out <<<<<<<<<<
+def get_filtered_ultrasonic(board: pm.Pymata4) -> float | None:
+    """Polls the ultrasonic sensor several times and averages the result, discarding any outliers.
+    
+    :param board: The arduino board to read from.
+
+    :returns: The filtered, averaged distance read from the ultrasonic sensor. Returns None if all readings were considered outliers.
+    """
+    pass
+
+
+# fill this out <<<<<<<<<<
+def pedestrian_button_pressed(board: pm.Pymata4) -> bool:
+    """Returns whether the pedestrian button was pressed since the last call of this function.
+    Debounces the button input in the process.
+    
+    :param board: The arduino board to read from.
+
+    :returns: Whether or not the button was pressed.
+    """
+
 
 def main():
     try:

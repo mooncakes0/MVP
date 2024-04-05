@@ -12,6 +12,8 @@ things to do:
 
     - make the output function print traffic stage every time it changes
 
+    - add a function to display a message to the 7-seg display
+
     - make the code more efficent cause rn its kind of just mentualy going through and stuff and its kinda clunky
 
     - other stuff im probably forgetting
@@ -27,6 +29,39 @@ mainLights = [4, 5, 6]
 sideLights = [7, 8, 9]
 pedLights = [10, 11]
 
+
+# fill this out <<<<<<<<<<
+def init(board: pm.Pymata4) -> None:
+    """Initializes output variables and board pins.
+    
+    :param board: The arduino board to set up.
+    """
+    pass
+
+
+# fill this out <<<<<<<<<<
+def shutdown(board: pm.Pymata4) -> None:
+    """Does any required cleanup.
+    
+    :param board: The arduino board to shut down.
+    """
+
+    # do not call board.shutdown() yet, done in main
+    pass
+
+
+# fill this out <<<<<<<<<<
+def get_traffic_stage(normalModeTime: float) -> list[int, float]:
+    """Returns the current traffic stage (1-6) based on the time spent in normal operation mode.
+    
+    :param normalModeTime: Time spent in normal operation mode.
+
+    :returns: Current traffic stage as an integer 1-6 and time until next traffic stage as a float.
+    """
+    pass
+
+
+# change this to take the board and current traffic stage <<<<<<<<
 def traffic_operation(board):
     # set all the pins to digital output
     for i in range(4,12):
@@ -94,8 +129,6 @@ def main():
     traffic_operation()
     output = inputsSubsystem.callback()
     print(output)
-    
-
 
 
 if __name__ == "__main__":
