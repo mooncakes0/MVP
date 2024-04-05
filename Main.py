@@ -4,6 +4,7 @@ Last modified: 03/04/2024
 """
 
 import time
+from pymata4 import pymata4 as pm
 
 # import serviceSubsystem as service
 # import inputsSubsystem as inputs
