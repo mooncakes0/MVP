@@ -59,8 +59,10 @@ def main() -> None:
 				normal_operation()
 			if operationMode == maintenanceModeConstant:
 				maintenance_mode()
+				operationMode = serviceModeConstant
 			if operationMode == dataObservationModeConstant:
 				data_observation_mode()
+				operationMode = serviceModeConstant
 		except KeyboardInterrupt:
 			if operationMode == serviceModeConstant:
 				break
@@ -81,16 +83,19 @@ def init() -> None:
 
 	board = pymata4.Pymata4()
 
+	time.sleep(0.5)
+
 	inputs.init(board)
 	outputs.init(board)
 
+	time.sleep(0.5)
+
 
 def shutdown() -> None:
-	inputs.shutdown()
-	outputs.shutdown()
+	outputs.shutdown(board)
 
 	# noticed in testing that not adding a delay caused some commands to not register
-	time.sleep(0.1)
+	time.sleep(0.5)
 	board.shutdown()
 
 
@@ -153,7 +158,8 @@ def normal_operation() -> None:
 	if inputs.pedestrian_button_pressed(board):
 		pedestrianCount += 1
 	
-	trafficStage, nextStageTime = outputs.get_traffic_stage(time.time() - normalModeEnterTime)
+	normalModeTime = time.time() - normalModeEnterTime
+	trafficStage, nextStageTime = outputs.get_traffic_stage(normalModeTime)
 	if trafficStage != lastTrafficStage:
 		print(f"Changing to traffic stage {trafficStage}.")
 
@@ -162,10 +168,12 @@ def normal_operation() -> None:
 		elif lastTrafficStage == 2 and trafficStage == 3:
 			print(f"There were {pedestrianCount} pedestrians in this traffic cycle.")
 	
-	outputs.traffic_operation(board, trafficStage)
-	outputs.show_message(str(nextStageTime))
+	outputs.traffic_operation(board, normalModeTime)
+	# outputs.show_message(str(nextStageTime))
 
 	lastTrafficStage = trafficStage
+
+	time.sleep(0.05)
 
 
 def service_mode() -> None:
@@ -334,15 +342,17 @@ def data_observation_mode() -> None:
 
 	if ultrasonicReadings[-1][0] - ultrasonicReadings[0][0] < 20:
 		print("Warning: less than 20 seconds of data will be shown.")
+
+	currentTime = time.time()
 	
-	x = [reading[0] for reading in ultrasonicReadings]
+	x = [reading[0] - currentTime for reading in ultrasonicReadings]
 	y = [reading[1] for reading in ultrasonicReadings]
 
 	fig, ax = ppl.subplots()
 
 	ax.plot(x, y)
 	
-	ax.set(xlim=(time.time() - 20, time.time()), ylim=(0, max(y)))
+	ax.set(xlim=(-20, 0), ylim=(0, max(y)))
 
 	ppl.show()
 

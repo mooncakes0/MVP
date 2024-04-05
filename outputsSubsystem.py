@@ -19,24 +19,41 @@ things to do:
     - other stuff im probably forgetting
 """
 
-import time
-import inputsSubsystem
 from pymata4 import pymata4 as pm
 
 # list of pins needed for each light system
-# index 0 = red,   index 1 = green,     index 2 = yellow
+# index 0 = red,   index 1 = yellow,     index 2 = green
+# for pedestrian lights, 0 is red, 1 is green
 mainLights = [4, 5, 6]
 sideLights = [7, 8, 9]
 pedLights = [10, 11]
 
+# the state of each light during each traffic stage
+# first column is main lights
+# second is side road lights
+# third is pedestrian lights
+# for pedestrian lights, 2 means flashing green
+lightStates = {
+    1: (2, 0, 0),
+    2: (1, 0, 0),
+    3: (0, 0, 0),
+    4: (0, 2, 1),
+    5: (0, 1, 2),
+    6: (0, 0, 0)
+}
+blinkFrequency = 3 # in hertz
 
-# fill this out <<<<<<<<<<
+lastTrafficStage = -1
+stageTimes = (30, 3, 3, 30, 3, 3)
+
+
 def init(board: pm.Pymata4) -> None:
     """Initializes output variables and board pins.
     
     :param board: The arduino board to set up.
     """
-    pass
+    for i in (mainLights + sideLights + pedLights):
+        board.set_pin_mode_digital_output(i)
 
 
 # fill this out <<<<<<<<<<
@@ -46,90 +63,42 @@ def shutdown(board: pm.Pymata4) -> None:
     :param board: The arduino board to shut down.
     """
 
-    # do not call board.shutdown() yet, done in main
-    pass
+    for i in (mainLights + sideLights + pedLights):
+        board.digital_write(i, 0)
 
 
-# fill this out <<<<<<<<<<
-def get_traffic_stage(normalModeTime: float) -> list[int, float]:
+def get_traffic_stage(normalModeTime: float) -> tuple[int, float]:
     """Returns the current traffic stage (1-6) based on the time spent in normal operation mode.
     
     :param normalModeTime: Time spent in normal operation mode.
 
     :returns: Current traffic stage as an integer 1-6 and time until next traffic stage as a float.
     """
-    pass
 
+    totalStageTime = sum(stageTimes)
+    timeMod = normalModeTime % totalStageTime
+    runningTotal = 0
+    for i in range(len(stageTimes)):
+        if timeMod - runningTotal < stageTimes[i]:
+            return (i + 1, stageTimes[i] - (timeMod - runningTotal))
+        runningTotal += stageTimes[i]
+    return len(stageTimes)
 
-# change this to take the board and current traffic stage <<<<<<<<
-def traffic_operation(board):
-    # set all the pins to digital output
-    for i in range(4,12):
-        board.set_pin_mode_digital_output(i)
-    while True:
-        try:
-            # the actual function of the lights
-            # stage 1
-            print("stage 1")
-            board.digital_write(mainLights[1], 1)
-            board.digital_write(sideLights[0], 1)
-            board.digital_write(pedLights[0], 1)
-            time.sleep(5)
-            board.digital_write(mainLights[1], 0)
+def traffic_operation(board: pm.Pymata4, normalModeTime: float) -> None:
+    global lastTrafficStage
+    
+    currentStage = get_traffic_stage(normalModeTime)[0]
+    stageStates = lightStates[currentStage]
+    
+    if currentStage != lastTrafficStage:
+        for i in range(3):
+            board.digital_write(mainLights[i], stageStates[0] == i)
+            board.digital_write(sideLights[i], stageStates[1] == i)
 
-            # stage 2:
-            print("stage 2")
-            board.digital_write(mainLights[2], 1)
-            time.sleep(3)
-            board.digital_write(mainLights[2], 0)
+            if i != 2:
+                board.digital_write(pedLights[i], stageStates[2] == i)
 
-            # stage 3:
-            print("stage 3")
-            board.digital_write(mainLights[0], 1)
-            time.sleep(3)
-            board.digital_write(sideLights[0], 0)
-            board.digital_write(pedLights[0], 0)
+    if stageStates[2] == 2:
+        board.digital_write(pedLights[1], (normalModeTime % (1/blinkFrequency)) * blinkFrequency < 0.5)
 
-            # stage 4:
-            print("stage 4")
-            board.digital_write(sideLights[1], 1)
-            board.digital_write(pedLights[1], 1)
-            time.sleep(5)
-            board.digital_write(sideLights[1], 0)
-
-            # stage 5:
-            print("stage 5")
-            board.digital_write(sideLights[2], 1)
-            board.digital_write(pedLights[1], 1) ## need to fix 
-            time.sleep(3)
-            board.digital_write(sideLights[2], 0)
-            board.digital_write(pedLights[1], 0)
-
-            # stage 6:
-            print("stage 6")
-            board.digital_write(sideLights[0], 1)
-            board.digital_write(pedLights[0], 1)
-            time.sleep(3)
-            board.digital_write(mainLights[0], 0)
-            board.digital_write(sideLights[0], 0)
-            board.digital_write(pedLights[0], 0)
-
-        except KeyboardInterrupt:
-            for i in range(4,12):
-                print(i)
-                time.sleep(.1)
-                board.digital_write(i, 0)
-            board.shutdown()
-            break
-
-
-board = pm.Pymata4()
-
-def main():
-    traffic_operation()
-    output = inputsSubsystem.callback()
-    print(output)
-
-
-if __name__ == "__main__":
-    main()
+    lastTrafficStage = currentStage
