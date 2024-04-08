@@ -91,6 +91,8 @@ def traffic_operation(board: pm.Pymata4, normalModeTime: float) -> None:
     stageStates = lightStates[currentStage]
     
     if currentStage != lastTrafficStage:
+        lastTrafficStage = currentStage
+
         for i in range(3):
             board.digital_write(mainLights[i], stageStates[0] == i)
             board.digital_write(sideLights[i], stageStates[1] == i)
@@ -100,5 +102,3 @@ def traffic_operation(board: pm.Pymata4, normalModeTime: float) -> None:
 
     if stageStates[2] == 2:
         board.digital_write(pedLights[1], (normalModeTime % (1/blinkFrequency)) * blinkFrequency < 0.5)
-
-    lastTrafficStage = currentStage

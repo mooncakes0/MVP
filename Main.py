@@ -92,7 +92,7 @@ def shutdown() -> None:
 	outputs.shutdown(board)
 
 	# noticed in testing that not adding a delay caused some commands to not register
-	time.sleep(0.5)
+	time.sleep(1)
 	board.shutdown()
 
 
