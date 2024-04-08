@@ -16,7 +16,7 @@ import outputsSubsystem as outputs
 maintenancePIN = "1234"
 maxPINAttempts = 4
 incorrectPINTimeout = 120
-pollLoopTime = 2
+pollLoopTime = 1.5
 distancePrintDelay = 2
 
 # ===== Program constants =====
@@ -72,10 +72,7 @@ def main() -> None:
 
 def init() -> None:
 	"""Initializes program variables"""
-	global board
-	global operationMode
-	global incorrectPINInputs
-	global PINTimeoutTime
+	global board, operationMode, incorrectPINInputs, PINTimeoutTime
 
 	operationMode = serviceModeConstant
 	incorrectPINInputs = 0
@@ -102,11 +99,7 @@ def shutdown() -> None:
 def init_normal_operation() -> None:
 	"""Initialises normal operation mode variables. Called every time system enters into normal operation mode."""
 
-	global normalModeEnterTime
-	global pedestrianCount
-	global nextUltrasonicReadTime
-	global nextDistancePrintTime
-	global lastPollTime
+	global normalModeEnterTime, pedestrianCount, nextUltrasonicReadTime, nextDistancePrintTime, lastPollTime
 
 	normalModeEnterTime = time.time()
 	nextUltrasonicReadTime = normalModeEnterTime
@@ -135,11 +128,7 @@ def normal_operation() -> None:
 	"""Standard operating mode.
 	Polls sensors and stores relevant data, as well as operating system outputs."""
 
-	global lastTrafficStage
-	global pedestrianCount
-	global nextDistancePrintTime
-	global nextUltrasonicReadTime
-	global lastPollTime
+	global lastTrafficStage, pedestrianCount, nextDistancePrintTime, nextUltrasonicReadTime, lastPollTime
 
 	if time.time() >= nextUltrasonicReadTime:
 		poll_sensors()
@@ -211,8 +200,7 @@ def get_PIN_input() -> bool:
 	:returns: Whether the user entered the correct PIN. Returns false if the user is currently locked out.
 	"""
 
-	global incorrectPINInputs
-	global PINTimeoutTime
+	global incorrectPINInputs, PINTimeoutTime
 
 	if time.time() < PINTimeoutTime:
 		print(f"Locked out for another {PINTimeoutTime - time.time():.0f} seconds.")
@@ -242,11 +230,7 @@ def get_PIN_input() -> bool:
 def maintenance_mode() -> None:
 	"""Allows the user to change variables that affect the operation of the system."""
 
-	global maintenancePIN
-	global maxPINAttempts
-	global incorrectPINTimeout
-	global pollLoopTime
-	global distancePrintDelay
+	global maintenancePIN, maxPINAttempts, incorrectPINTimeout, pollLoopTime, distancePrintDelay
 
 	running = True
 	while running:
@@ -342,17 +326,19 @@ def data_observation_mode() -> None:
 
 	if ultrasonicReadings[-1][0] - ultrasonicReadings[0][0] < 20:
 		print("Warning: less than 20 seconds of data will be shown.")
-
-	currentTime = time.time()
 	
-	x = [reading[0] - currentTime for reading in ultrasonicReadings]
+	x = [reading[0] - ultrasonicReadings[-1][0] for reading in ultrasonicReadings]
 	y = [reading[1] for reading in ultrasonicReadings]
 
-	fig, ax = ppl.subplots()
+	_, ax = ppl.subplots()
 
 	ax.plot(x, y)
 	
 	ax.set(xlim=(-20, 0), ylim=(0, max(y)))
+
+	ax.set_xlabel("Time (sec)")
+	ax.set_ylabel("Distance (cm)")
+	ax.set_title("Vehicle distance over time")
 
 	ppl.show()
 
