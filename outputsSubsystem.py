@@ -4,21 +4,14 @@
 things to do:
     - the rest of the output requirements 
 
-    - make an init() function (takes the board as an argument) that initializes variables and board pins
-
     - make a function that takes the current time in normal operation and determines the current traffic stage (time in normal operation mode will be passed in from main)
 
     - make the output function run alongside the main code
 
-    - make the output function print traffic stage every time it changes
-
     - add a function to display a message to the 7-seg display
-
-    - make the code more efficent cause rn its kind of just mentualy going through and stuff and its kinda clunky
 
     - other stuff im probably forgetting
 """
-
 from pymata4 import pymata4 as pm
 
 # list of pins needed for each light system
@@ -102,3 +95,4 @@ def traffic_operation(board: pm.Pymata4, normalModeTime: float) -> None:
 
     if stageStates[2] == 2:
         board.digital_write(pedLights[1], (normalModeTime % (1/blinkFrequency)) * blinkFrequency < 0.5)
+
