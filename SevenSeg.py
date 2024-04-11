@@ -4,6 +4,7 @@ Created 08/04/2024.
 """
 
 from pymata4 import pymata4
+import time
 
 sevenSegPins = [2, 3, 4, 5, 6, 7, 8]
 segmentEnablePins = (9, 10, 11, 12)
@@ -54,8 +55,11 @@ lookupTable = {
 	"q": (1, 1, 1, 0, 0, 1, 1),
 	"r": (0, 0, 0, 0, 1, 0, 1),
 	"t": (0, 0, 0, 0, 1, 1, 1),
-	"u": (0, 0, 1, 1, 1, 0, 0),
+	"u": (0, 0, 1, 1, 1, 0, 0)
 }
+
+messages = ["Ab12", "HELP", "M2"]
+messageTime = 3
 
 
 def display_message(board: pymata4.Pymata4, message: str) -> None:
@@ -72,7 +76,7 @@ def display_message(board: pymata4.Pymata4, message: str) -> None:
 			show_character(board, char.swapcase(), 3 - i)
 
 
-def show_character(board: pymata4.Pymata4, char: str, index: int):
+def show_character(board: pymata4.Pymata4, char: str, index: int) -> None:
 	"""Displays a character on a given segment of the seven segment display.
 	
 	:param board: Arduino board.
@@ -88,12 +92,18 @@ def show_character(board: pymata4.Pymata4, char: str, index: int):
 		board.digital_write(sevenSegPins[i], states[i])
 
 
+def get_message(time: float) -> str:
+	messageIndex = time % (len(messages) * messageTime) // messageTime
+	return messages[messageIndex]
+
+
 if __name__ == "__main__":
 	board = pymata4.Pymata4()
+	initialTime = time.time()
 
 	while True:
 		try:
-			display_message(board, "Ab12")
+			display_message(board, get_message(time.time() - initialTime))
 		except KeyboardInterrupt:
 			break
 	
