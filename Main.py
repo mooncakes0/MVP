@@ -1,7 +1,8 @@
 """Main code for Team I07's project Milestone 2
 This file makes up the control and service subsystems
-Created by Evgeny Solomin (34977260)
-Last modified: 03/04/2024
+Created by: Evgeny Solomin
+Created Date: 03/04/2024
+Version: 1.3
 """
 
 import time
@@ -89,6 +90,7 @@ def init() -> None:
 
 
 def shutdown() -> None:
+	"""Shuts down the board, and allows other subsystems to call their own shutdown methods."""
 	outputs.shutdown(board)
 
 	# noticed in testing that not adding a delay caused some commands to not register

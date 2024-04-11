@@ -1,22 +1,7 @@
-# feel free to make it more effeicent im just getting it kind of working so i can test and see whats going on
-
-"""
-things to do:
-	- the rest of the output requirements 
-
-	- make an init() function (takes the board as an argument) that initializes variables and board pins
-
-	- make a function that takes the current time in normal operation and determines the current traffic stage (time in normal operation mode will be passed in from main)
-
-	- make the output function run alongside the main code
-
-	- make the output function print traffic stage every time it changes
-
-	- add a function to display a message to the 7-seg display
-
-	- make the code more efficent cause rn its kind of just mentualy going through and stuff and its kinda clunky
-
-	- other stuff im probably forgetting
+"""Module to control outputs for Milestone 2 of MVP
+Created by: Jackie Hong, Evgeny Solomin
+Created Date: 04/04/2024
+Version: 1.2
 """
 
 from pymata4 import pymata4 as pm

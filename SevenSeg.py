@@ -1,6 +1,7 @@
 """Module to output to a seven segment display.
-Written by Evgeny Solomin.
-Created 08/04/2024.
+Created by: Evgeny Solomin.
+Created Date: 08/04/2024.
+Version: 1.1
 """
 
 from pymata4 import pymata4
@@ -93,6 +94,13 @@ def show_character(board: pymata4.Pymata4, char: str, index: int) -> None:
 
 
 def get_message(time: float) -> str:
+	"""Gets the message that should currently be displayed.
+	
+	:param time: current time (since startup).
+
+	:returns: Message to display, as a string.
+	"""
+
 	messageIndex = time % (len(messages) * messageTime) // messageTime
 	return messages[messageIndex]
 
