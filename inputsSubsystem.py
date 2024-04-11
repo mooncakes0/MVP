@@ -4,12 +4,6 @@ Created date: 03/04/2024
 version: 1.1
 """
 
-"""
-still to do:
-	- The rate of distance change that should trigger system alerts for your 
-	  project is experimentally determined and justified with results.
-"""
-
 # imports
 import time
 from pymata4 import pymata4

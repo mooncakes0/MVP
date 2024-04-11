@@ -51,12 +51,14 @@ def shutdown(board: pm.Pymata4) -> None:
 		board.digital_write(i, 0)
 
 
-def get_traffic_stage(normalModeTime: float) -> tuple[int, float]:
+def get_traffic_stage(normalModeTime: float) -> tuple[int, float, float]:
 	"""Returns the current traffic stage (1-6) based on the time spent in normal operation mode.
 	
 	:param normalModeTime: Time spent in normal operation mode.
 
-	:returns: Current traffic stage as an integer 1-6 and time until next traffic stage as a float.
+	:returns: (traffic stage, time in current stage, time until next stage).
+	Current traffic stage is given as an int, 1-6.
+	Time in current traffic stage and time until next traffic stage are given in seconds, as floats.
 	"""
 
 	totalStageTime = sum(stageTimes)
@@ -64,9 +66,17 @@ def get_traffic_stage(normalModeTime: float) -> tuple[int, float]:
 	runningTotal = 0
 	for i in range(len(stageTimes)):
 		if timeMod - runningTotal < stageTimes[i]:
-			return (i + 1, stageTimes[i] - (timeMod - runningTotal))
+			return (i + 1, timeMod - runningTotal, stageTimes[i] - (timeMod - runningTotal))
 		runningTotal += stageTimes[i]
 	return len(stageTimes)
+
+def get_main_light_state(trafficStage: int) -> int:
+	"""Returns the state of the main traffic light during the given state
+	
+	:param trafficStage: Current traffic stage (int)
+
+	:returns: State of main traffic light (int). 0 is red, 1 is yellow, 2 is green.
+	"""
 
 def traffic_operation(board: pm.Pymata4, normalModeTime: float) -> None:
 	global lastTrafficStage
