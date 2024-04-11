@@ -333,7 +333,6 @@ def data_observation_mode() -> None:
 	_, ax = ppl.subplots()
 
 	ax.plot(x, y)
-	
 	ax.set(xlim=(-20, 0), ylim=(0, max(y)))
 
 	ax.set_xlabel("Time (sec)")
