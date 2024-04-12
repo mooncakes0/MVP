@@ -6,6 +6,7 @@ version: 1.1
 
 # imports
 import time
+import random
 
 # Hardware constants
 trigger = 12
@@ -48,10 +49,11 @@ def get_filtered_ultrasonic() -> float | None:
 	total = 0
 
 	for i in range(numUltrasonicReadings):
-		reading = 10
+		reading = random.randint(2, 400)
 		print(f"Take a sonar reading using pin {trigger} as trigger pin.")
 
-		if 0 < reading < 300:
+		# ultrasonic range is 2-400 cm
+		if 2 <= reading <= 400:
 			total += reading
 			numReadings += 1
 	
@@ -76,7 +78,7 @@ def pedestrian_button_pressed() -> bool:
 	if time.time() < lastButtonChangeTime + debounceTime:
 		return False
 
-	currentState = 0
+	currentState = random.randint(0, 1)
 	print(f"Read state (digital) of pin {button}.")
 	if currentState != previousState:
 		previousState = currentState

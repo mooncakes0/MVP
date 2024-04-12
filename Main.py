@@ -50,18 +50,20 @@ def main() -> None:
 
 	init()
 
+	# weird double while true loop to get around KeyboardInterrupt occasionally being unhandled
 	while True:
 		try:
-			if operationMode == serviceModeConstant:
-				service_mode()
-			if operationMode == normalModeConstant:
-				normal_operation()
-			if operationMode == maintenanceModeConstant:
-				maintenance_mode()
-				operationMode = serviceModeConstant
-			if operationMode == dataObservationModeConstant:
-				data_observation_mode()
-				operationMode = serviceModeConstant
+			while True:
+				if operationMode == serviceModeConstant:
+					service_mode()
+				if operationMode == normalModeConstant:
+					normal_operation()
+				if operationMode == maintenanceModeConstant:
+					maintenance_mode()
+					operationMode = serviceModeConstant
+				if operationMode == dataObservationModeConstant:
+					data_observation_mode()
+					operationMode = serviceModeConstant
 		except KeyboardInterrupt:
 			if operationMode == serviceModeConstant:
 				break

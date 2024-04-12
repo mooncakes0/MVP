@@ -100,7 +100,7 @@ def get_message(time: float) -> str:
 	:returns: Message to display, as a string.
 	"""
 
-	messageIndex = time % (len(messages) * messageTime) // messageTime
+	messageIndex = int(time % (len(messages) * messageTime) // messageTime)
 	return messages[messageIndex]
 
 
@@ -108,10 +108,10 @@ if __name__ == "__main__":
 	print("Create arduino board.")
 	initialTime = time.time()
 
-	while True:
-		try:
+	try:
+		while True:
 			display_message(get_message(time.time() - initialTime))
-		except KeyboardInterrupt:
-			break
+	except KeyboardInterrupt:
+		pass
 	
 	print("Shut down board.")
