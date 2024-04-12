@@ -77,7 +77,15 @@ def get_main_light_state(trafficStage: int) -> int:
 	:returns: State of main traffic light (int). 0 is red, 1 is yellow, 2 is green.
 	"""
 
+	return lightStates[trafficStage][0]
+
 def traffic_operation(normalModeTime: float) -> None:
+	"""Operates outputs of the system.
+	
+	:param board: arduino board
+	:param normalModeTime: Time spent in normal operating mode, in seconds (float)
+	"""
+
 	global lastTrafficStage, lastBlinkState
 	
 	currentStage = get_traffic_stage(normalModeTime)[0]
