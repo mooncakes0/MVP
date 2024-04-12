@@ -6,7 +6,6 @@ Version: 1.3
 """
 
 import time
-from pymata4 import pymata4
 import matplotlib.pyplot as ppl
 
 import inputsSubsystem as inputs
@@ -27,7 +26,6 @@ maintenanceModeConstant = "maintenance"
 
 # ===== Program variables =====
 # general variables
-board = None
 operationMode = None
 
 # normal mode variables
@@ -73,29 +71,29 @@ def main() -> None:
 
 def init() -> None:
 	"""Initializes program variables"""
-	global board, operationMode, incorrectPINInputs, PINTimeoutTime
+	global operationMode, incorrectPINInputs, PINTimeoutTime
 
 	operationMode = serviceModeConstant
 	incorrectPINInputs = 0
 	PINTimeoutTime = time.time()
 
-	board = pymata4.Pymata4()
+	print("Set up arduino board.")
 
 	time.sleep(0.5)
 
-	inputs.init(board)
-	outputs.init(board)
+	inputs.init()
+	outputs.init()
 
 	time.sleep(0.5)
 
 
 def shutdown() -> None:
 	"""Shuts down the board, and allows other subsystems to call their own shutdown methods."""
-	outputs.shutdown(board)
+	outputs.shutdown()
 
 	# noticed in testing that not adding a delay caused the board to shut down before some commands were excecuted
 	time.sleep(1)
-	board.shutdown()
+	print("Shut down board.")
 
 
 def init_normal_operation() -> None:
@@ -117,7 +115,7 @@ def poll_sensors():
 
 	global ultrasonicReadings
 
-	ultrasonicDistance = inputs.get_filtered_ultrasonic(board)
+	ultrasonicDistance = inputs.get_filtered_ultrasonic()
 	# only add reading to list if we got a valid distance
 	if ultrasonicDistance is not None:
 		ultrasonicReadings.append((time.time(), ultrasonicDistance))
@@ -134,7 +132,7 @@ def normal_operation() -> None:
 
 	global lastTrafficStage, pedestrianCount, nextDistancePrintTime, nextUltrasonicReadTime, lastPollTime
 	
-	if inputs.pedestrian_button_pressed(board):
+	if inputs.pedestrian_button_pressed():
 		pedestrianCount += 1
 	
 	normalModeTime = time.time() - normalModeEnterTime
@@ -174,7 +172,7 @@ def normal_operation() -> None:
 	
 		nextDistancePrintTime += distancePrintDelay
 	
-	outputs.traffic_operation(board, normalModeTime)
+	outputs.traffic_operation(normalModeTime)
 
 	lastTrafficStage = trafficStage
 

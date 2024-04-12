@@ -6,7 +6,6 @@ version: 1.1
 
 # imports
 import time
-from pymata4 import pymata4
 
 # Hardware constants
 trigger = 12
@@ -21,7 +20,7 @@ debounceTime = 0.1
 previousState = 0
 lastButtonChangeTime = 0
 
-def init(board: pymata4.Pymata4) -> None:
+def init() -> None:
 	"""Initializes input variables and board pins.
 	
 	:param board: The arduino board to use for set up.
@@ -29,13 +28,15 @@ def init(board: pymata4.Pymata4) -> None:
 
 	global lastButtonChangeTime
 
-	board.set_pin_mode_sonar(trigger, echo)
-	board.set_pin_mode_digital_input(button)
+	print(f"Set up sonar with pin {trigger} as trigger pin and pin {echo} as echo pin.")
+	print(f"Set pin {button} to act as a digital input.")
+	# board.set_pin_mode_sonar(trigger, echo)
+	# board.set_pin_mode_digital_input(button)
 
 	lastButtonChangeTime = time.time() - debounceTime
 
 
-def get_filtered_ultrasonic(board: pymata4.Pymata4) -> float | None:
+def get_filtered_ultrasonic() -> float | None:
 	"""Polls the ultrasonic sensor several times and averages the result, discarding any outliers.
 	
 	:param board: The arduino board to read from.
@@ -47,7 +48,8 @@ def get_filtered_ultrasonic(board: pymata4.Pymata4) -> float | None:
 	total = 0
 
 	for i in range(numUltrasonicReadings):
-		reading = board.sonar_read(trigger)[0]
+		reading = 10
+		print(f"Take a sonar reading using pin {trigger} as trigger pin.")
 
 		if 0 < reading < 300:
 			total += reading
@@ -60,7 +62,7 @@ def get_filtered_ultrasonic(board: pymata4.Pymata4) -> float | None:
 	return average
 
 
-def pedestrian_button_pressed(board: pymata4.Pymata4) -> bool:
+def pedestrian_button_pressed() -> bool:
 	"""Returns whether the pedestrian button was pressed since the last call of this function.
 	Debounces the button input in the process.
 	
@@ -74,7 +76,8 @@ def pedestrian_button_pressed(board: pymata4.Pymata4) -> bool:
 	if time.time() < lastButtonChangeTime + debounceTime:
 		return False
 
-	currentState = board.digital_read(button)[0]
+	currentState = 0
+	print(f"Read state (digital) of pin {button}.")
 	if currentState != previousState:
 		previousState = currentState
 		lastButtonChangeTime = time.time()

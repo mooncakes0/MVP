@@ -4,8 +4,6 @@ Created Date: 04/04/2024
 Version: 1.2
 """
 
-from pymata4 import pymata4 as pm
-
 # list of pins needed for each light system
 # index 0 = red,   index 1 = yellow,     index 2 = green
 # for pedestrian lights, 0 is red, 1 is green
@@ -30,25 +28,26 @@ blinkFrequency = 3 # in hertz
 
 lastTrafficStage = -1
 stageTimes = (30, 3, 3, 30, 3, 3)
+lastBlinkState = False
 
 
-def init(board: pm.Pymata4) -> None:
+def init() -> None:
 	"""Initializes output variables and board pins.
 	
 	:param board: The arduino board to set up.
 	"""
 	for i in (mainLights + sideLights + pedLights):
-		board.set_pin_mode_digital_output(i)
+		print(f"Set pin {i} as digital output.")
 
 
-def shutdown(board: pm.Pymata4) -> None:
+def shutdown() -> None:
 	"""Does any required cleanup.
 	
 	:param board: The arduino board to shut down.
 	"""
 
 	for i in (mainLights + sideLights + pedLights):
-		board.digital_write(i, 0)
+		print(f"Write 0 to pin {i}.")
 
 
 def get_traffic_stage(normalModeTime: float) -> tuple[int, float, float]:
@@ -78,8 +77,8 @@ def get_main_light_state(trafficStage: int) -> int:
 	:returns: State of main traffic light (int). 0 is red, 1 is yellow, 2 is green.
 	"""
 
-def traffic_operation(board: pm.Pymata4, normalModeTime: float) -> None:
-	global lastTrafficStage
+def traffic_operation(normalModeTime: float) -> None:
+	global lastTrafficStage, lastBlinkState
 	
 	currentStage = get_traffic_stage(normalModeTime)[0]
 	stageStates = lightStates[currentStage]
@@ -88,11 +87,13 @@ def traffic_operation(board: pm.Pymata4, normalModeTime: float) -> None:
 		lastTrafficStage = currentStage
 
 		for i in range(3):
-			board.digital_write(mainLights[i], stageStates[0] == i)
-			board.digital_write(sideLights[i], stageStates[1] == i)
+			print(f"Set pin {mainLights[i]} to {stageStates[0] == i}.")
+			print(f"Set pin {sideLights[i]} to {stageStates[1] == i}.")
 
 			if i != 2:
-				board.digital_write(pedLights[i], stageStates[2] == i)
+				print(f"Set pin {pedLights[i]} to {stageStates[2] == i}.")
 
-	if stageStates[2] == 2:
-		board.digital_write(pedLights[1], (normalModeTime % (1/blinkFrequency)) * blinkFrequency < 0.5)
+	blinkState = (normalModeTime % (1/blinkFrequency)) * blinkFrequency < 0.5
+	if stageStates[2] == 2 and blinkState != lastBlinkState:
+		print(f"Set pin {pedLights[i]} to {stageStates[2] == i}.")
+		lastBlinkState = blinkState

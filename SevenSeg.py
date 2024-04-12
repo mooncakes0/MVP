@@ -4,7 +4,6 @@ Created Date: 08/04/2024.
 Version: 1.1
 """
 
-from pymata4 import pymata4
 import time
 
 sevenSegPins = [2, 3, 4, 5, 6, 7, 8]
@@ -63,7 +62,7 @@ messages = ["Ab12", "HELP", "M2"]
 messageTime = 3
 
 
-def display_message(board: pymata4.Pymata4, message: str) -> None:
+def display_message(message: str) -> None:
 	"""Displays a message on the seven segment display."""
 
 	if len(message) > 4:
@@ -72,12 +71,12 @@ def display_message(board: pymata4.Pymata4, message: str) -> None:
 	for i in range(0, min(4, len(message))):
 		char = message[-1 - i]
 		if char in lookupTable:
-			show_character(board, char, 3 - i)
+			show_character(char, 3 - i)
 		elif char.swapcase() in lookupTable:
-			show_character(board, char.swapcase(), 3 - i)
+			show_character(char.swapcase(), 3 - i)
 
 
-def show_character(board: pymata4.Pymata4, char: str, index: int) -> None:
+def show_character(char: str, index: int) -> None:
 	"""Displays a character on a given segment of the seven segment display.
 	
 	:param board: Arduino board.
@@ -86,11 +85,11 @@ def show_character(board: pymata4.Pymata4, char: str, index: int) -> None:
 	"""
 
 	for i in range(4):
-		board.digital_write(segmentEnablePins[i], i == index)
+		print(f"Set pin {segmentEnablePins[i]} to {i == index}.")
 	
 	states = lookupTable[char]
 	for i in range(7):
-		board.digital_write(sevenSegPins[i], states[i])
+		print(f"Set pin {sevenSegPins[i]} to {states[i]}.")
 
 
 def get_message(time: float) -> str:
@@ -106,13 +105,13 @@ def get_message(time: float) -> str:
 
 
 if __name__ == "__main__":
-	board = pymata4.Pymata4()
+	print("Create arduino board.")
 	initialTime = time.time()
 
 	while True:
 		try:
-			display_message(board, get_message(time.time() - initialTime))
+			display_message(get_message(time.time() - initialTime))
 		except KeyboardInterrupt:
 			break
 	
-	board.shutdown()
+	print("Shut down board.")
