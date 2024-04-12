@@ -3,7 +3,6 @@ Created by: Jackie Hong, Evgeny Solomin
 Created Date: 04/04/2024
 Version: 1.2
 """
-
 from pymata4 import pymata4 as pm
 
 # list of pins needed for each light system
