@@ -1,14 +1,14 @@
 """Main code for Team I07's project Milestone 2
 This file makes up the control and service subsystems
-Created by Evgeny Solomin (34977260)
-Last modified: 03/04/2024
+Created by: Evgeny Solomin
+Created Date: 03/04/2024
+Version: 1.3
 """
 
 import time
 from pymata4 import pymata4
 import matplotlib.pyplot as ppl
 
-# import serviceSubsystem as service
 import inputsSubsystem as inputs
 import outputsSubsystem as outputs
 
@@ -16,7 +16,7 @@ import outputsSubsystem as outputs
 maintenancePIN = "1234"
 maxPINAttempts = 4
 incorrectPINTimeout = 120
-pollLoopTime = 1.5
+pollLoopInterval = 1.5
 distancePrintDelay = 2
 
 # ===== Program constants =====
@@ -38,6 +38,7 @@ ultrasonicReadings = []
 nextDistancePrintTime = 0
 nextUltrasonicReadTime = 0
 lastPollTime = 0
+maxVehicleDeceleration = 20 # used for system alerts. In cm/s^2
 
 # service mode variables
 PINTimeoutTime = 0
@@ -89,9 +90,10 @@ def init() -> None:
 
 
 def shutdown() -> None:
+	"""Shuts down the board, and allows other subsystems to call their own shutdown methods."""
 	outputs.shutdown(board)
 
-	# noticed in testing that not adding a delay caused some commands to not register
+	# noticed in testing that not adding a delay caused the board to shut down before some commands were excecuted
 	time.sleep(1)
 	board.shutdown()
 
@@ -102,8 +104,8 @@ def init_normal_operation() -> None:
 	global normalModeEnterTime, pedestrianCount, nextUltrasonicReadTime, nextDistancePrintTime, lastPollTime
 
 	normalModeEnterTime = time.time()
+	# set the distance print and poll to first trigger when entering normal operation
 	nextUltrasonicReadTime = normalModeEnterTime
-	# set the distance print to first trigger when
 	nextDistancePrintTime = normalModeEnterTime
 	lastPollTime = normalModeEnterTime
 
@@ -120,8 +122,10 @@ def poll_sensors():
 	if ultrasonicDistance is not None:
 		ultrasonicReadings.append((time.time(), ultrasonicDistance))
 
-	while ultrasonicReadings[-1][0] - ultrasonicReadings[0][0] > 20 + pollLoopTime:
-		ultrasonicReadings.pop(0)
+		# Remove excess data from the readings buffer
+		while (ultrasonicReadings[-1][0] - ultrasonicReadings[0][0] > 20 # Check if there is more than 20 seconds of data
+			and ultrasonicReadings[-1][0] - ultrasonicReadings[1][0] > 20):	# Ensure that there will still be more than 20 seconds of data left if a reading is removed
+			ultrasonicReadings.pop(0)
 
 
 def normal_operation() -> None:
@@ -129,40 +133,52 @@ def normal_operation() -> None:
 	Polls sensors and stores relevant data, as well as operating system outputs."""
 
 	global lastTrafficStage, pedestrianCount, nextDistancePrintTime, nextUltrasonicReadTime, lastPollTime
-
-	if time.time() >= nextUltrasonicReadTime:
-		poll_sensors()
-
-		print(f"Polling loop took {time.time() - lastPollTime:.2f} seconds.")
-		
-		lastPollTime = time.time()
-		nextUltrasonicReadTime += pollLoopTime
-	
-	if time.time() >= nextDistancePrintTime:
-		if len(ultrasonicReadings):
-			print(f"Last distance reading: {ultrasonicReadings[-1][1]:.1f} cm")
-		
-		nextDistancePrintTime += distancePrintDelay
 	
 	if inputs.pedestrian_button_pressed(board):
 		pedestrianCount += 1
 	
 	normalModeTime = time.time() - normalModeEnterTime
-	trafficStage, nextStageTime = outputs.get_traffic_stage(normalModeTime)
+	trafficStage, currentStageTime, nextStageTime = outputs.get_traffic_stage(normalModeTime)
 	if trafficStage != lastTrafficStage:
 		print(f"Changing to traffic stage {trafficStage}.")
 
-		if lastTrafficStage == 6 and trafficStage == 1:
+		if trafficStage == 1:
 			pedestrianCount = 0
-		elif lastTrafficStage == 2 and trafficStage == 3:
+		elif trafficStage == 3:
 			print(f"There were {pedestrianCount} pedestrians in this traffic cycle.")
+
+	if time.time() >= nextUltrasonicReadTime:
+		poll_sensors()
+
+		pollLoopTime = time.time() - lastPollTime
+		print(f"Polling loop took {pollLoopTime:.2f} seconds (intended {pollLoopInterval:.2f}).")
+		
+		lastPollTime = time.time()
+		nextUltrasonicReadTime += pollLoopInterval
+
+		if len(ultrasonicReadings) >= 2:
+			speed = (ultrasonicReadings[-2][1] - ultrasonicReadings[-1][1]) / pollLoopTime
+			lightState = outputs.get_main_light_state(trafficStage)
+
+			# During a red light, check if vehicle is predicted to not stop in time
+			# Using the constant acceleration formula v^2 = u^2 + 2as
+			if speed > 0 and lightState == 0 and speed**2 / 2 / maxVehicleDeceleration > ultrasonicReadings[-1]:
+				print("ALERT: Vehicle likely run a red light.")
+
+			# During a green light, issue an alert if vehicle seems to not be moving after 3 seconds
+			if lightState == 2 and currentStageTime > 3 and -1 / pollLoopTime <= speed <= 1 / pollLoopTime:
+				print("ALERT: Vehicle stalling at green light.")
+	
+	if time.time() >= nextDistancePrintTime and len(ultrasonicReadings):
+		print(f"Last distance reading: {ultrasonicReadings[-1][1]:.2f} cm")
+	
+		nextDistancePrintTime += distancePrintDelay
 	
 	outputs.traffic_operation(board, normalModeTime)
-	# outputs.show_message(str(nextStageTime))
 
 	lastTrafficStage = trafficStage
 
-	time.sleep(0.05)
+	# time.sleep(0.05)
 
 
 def service_mode() -> None:
@@ -230,7 +246,7 @@ def get_PIN_input() -> bool:
 def maintenance_mode() -> None:
 	"""Allows the user to change variables that affect the operation of the system."""
 
-	global maintenancePIN, maxPINAttempts, incorrectPINTimeout, pollLoopTime, distancePrintDelay
+	global maintenancePIN, maxPINAttempts, incorrectPINTimeout, pollLoopInterval, distancePrintDelay
 
 	running = True
 	while running:
@@ -238,8 +254,8 @@ def maintenance_mode() -> None:
 		print(f"1. Maintenance mode PIN: \"{maintenancePIN}\"")
 		print(f"2. Maximum PIN attempts before timeout: {maxPINAttempts}")
 		print(f"3. Incorrect PIN timeout time: {incorrectPINTimeout} seconds")
-		print(f"4. Polling loop frequency: {pollLoopTime} seconds")
-		print(f"5. Distance print frequency: {distancePrintDelay} seconds")
+		print(f"4. Polling loop interval: {pollLoopInterval} seconds")
+		print(f"5. Distance print interval: {distancePrintDelay} seconds")
 		print("6. Exit maintenance mode")
 
 		varToEdit = input()
@@ -254,7 +270,7 @@ def maintenance_mode() -> None:
 
 				maintenancePIN = newPIN
 			case "2":
-				newMaxAttempts = input("Enter new maximum incorrect inputs: ")
+				newMaxAttempts = input("Enter new maximum PIN attempts: ")
 
 				try:
 					newMaxAttempts = int(str(newMaxAttempts))
@@ -286,7 +302,7 @@ def maintenance_mode() -> None:
 
 				incorrectPINTimeout = newTimeout
 			case "4":
-				newLoopTime = input("Enter new polling loop frequency: ")
+				newLoopTime = input("Enter new polling loop interval: ")
 
 				try:
 					newLoopTime = float(newLoopTime)
@@ -300,9 +316,9 @@ def maintenance_mode() -> None:
 					input("Press [Enter] to continue.")
 					continue
 
-				pollLoopTime = newLoopTime
+				pollLoopInterval = newLoopTime
 			case "5":
-				newPrintTime = input("Enter new distance print frequency: ")
+				newPrintTime = input("Enter new distance print interval: ")
 
 				try:
 					newPrintTime = float(newPrintTime)
@@ -324,6 +340,10 @@ def maintenance_mode() -> None:
 def data_observation_mode() -> None:
 	"""Creates a graph of the past 20 seconds of traffic data."""
 
+	if len(ultrasonicReadings) == 0:
+		print("No data to display!")
+		return
+
 	if ultrasonicReadings[-1][0] - ultrasonicReadings[0][0] < 20:
 		print("Warning: less than 20 seconds of data will be shown.")
 	
@@ -333,7 +353,6 @@ def data_observation_mode() -> None:
 	_, ax = ppl.subplots()
 
 	ax.plot(x, y)
-	
 	ax.set(xlim=(-20, 0), ylim=(0, max(y)))
 
 	ax.set_xlabel("Time (sec)")

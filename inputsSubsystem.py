@@ -1,14 +1,7 @@
-# this is a module used for the control of the input sub-system
-# created by: jackie hong
-# creation date: 03/04/2024
-# version: 1.1
-
-"""
-still to do:
-	- The rate of distance change that should trigger system alerts for your 
-	  project is experimentally determined and justified with results.
-
-	- im not sure but ik there is more things to do
+"""Module to integrate with the input subsystem of Milestone 2 MVP
+Created by: Jackie Hong, Evgeny Solomin
+Created date: 03/04/2024
+version: 1.1
 """
 
 # imports

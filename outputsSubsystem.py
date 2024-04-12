@@ -1,16 +1,7 @@
-# feel free to make it more effeicent im just getting it kind of working so i can test and see whats going on
-
-"""
-things to do:
-    - the rest of the output requirements 
-
-    - make a function that takes the current time in normal operation and determines the current traffic stage (time in normal operation mode will be passed in from main)
-
-    - make the output function run alongside the main code
-
-    - add a function to display a message to the 7-seg display
-
-    - other stuff im probably forgetting
+"""Module to control outputs for Milestone 2 of MVP
+Created by: Jackie Hong, Evgeny Solomin
+Created Date: 04/04/2024
+Version: 1.2
 """
 from pymata4 import pymata4 as pm
 
@@ -27,72 +18,91 @@ pedLights = [10, 11]
 # third is pedestrian lights
 # for pedestrian lights, 2 means flashing green
 lightStates = {
-    1: (2, 0, 0),
-    2: (1, 0, 0),
-    3: (0, 0, 0),
-    4: (0, 2, 1),
-    5: (0, 1, 2),
-    6: (0, 0, 0)
+	1: (2, 0, 0),
+	2: (1, 0, 0),
+	3: (0, 0, 0),
+	4: (0, 2, 1),
+	5: (0, 1, 2),
+	6: (0, 0, 0)
 }
 blinkFrequency = 3 # in hertz
 
 lastTrafficStage = -1
 stageTimes = (30, 3, 3, 30, 3, 3)
+lastBlinkState = False
 
 
 def init(board: pm.Pymata4) -> None:
-    """Initializes output variables and board pins.
-    
-    :param board: The arduino board to set up.
-    """
-    for i in (mainLights + sideLights + pedLights):
-        board.set_pin_mode_digital_output(i)
+	"""Initializes output variables and board pins.
+	
+	:param board: The arduino board to set up.
+	"""
+	for i in (mainLights + sideLights + pedLights):
+		board.set_pin_mode_digital_output(i)
 
 
-# fill this out <<<<<<<<<<
 def shutdown(board: pm.Pymata4) -> None:
-    """Does any required cleanup.
-    
-    :param board: The arduino board to shut down.
-    """
+	"""Does any required cleanup.
+	
+	:param board: The arduino board to shut down.
+	"""
 
-    for i in (mainLights + sideLights + pedLights):
-        board.digital_write(i, 0)
+	for i in (mainLights + sideLights + pedLights):
+		board.digital_write(i, 0)
 
 
-def get_traffic_stage(normalModeTime: float) -> tuple[int, float]:
-    """Returns the current traffic stage (1-6) based on the time spent in normal operation mode.
-    
-    :param normalModeTime: Time spent in normal operation mode.
+def get_traffic_stage(normalModeTime: float) -> tuple[int, float, float]:
+	"""Returns the current traffic stage (1-6) based on the time spent in normal operation mode.
+	
+	:param normalModeTime: Time spent in normal operation mode.
 
-    :returns: Current traffic stage as an integer 1-6 and time until next traffic stage as a float.
-    """
+	:returns: (traffic stage, time in current stage, time until next stage).
+	Current traffic stage is given as an int, 1-6.
+	Time in current traffic stage and time until next traffic stage are given in seconds, as floats.
+	"""
 
-    totalStageTime = sum(stageTimes)
-    timeMod = normalModeTime % totalStageTime
-    runningTotal = 0
-    for i in range(len(stageTimes)):
-        if timeMod - runningTotal < stageTimes[i]:
-            return (i + 1, stageTimes[i] - (timeMod - runningTotal))
-        runningTotal += stageTimes[i]
-    return len(stageTimes)
+	totalStageTime = sum(stageTimes)
+	timeMod = normalModeTime % totalStageTime
+	runningTotal = 0
+	for i in range(len(stageTimes)):
+		if timeMod - runningTotal < stageTimes[i]:
+			return (i + 1, timeMod - runningTotal, stageTimes[i] - (timeMod - runningTotal))
+		runningTotal += stageTimes[i]
+	return len(stageTimes)
+
+def get_main_light_state(trafficStage: int) -> int:
+	"""Returns the state of the main traffic light during the given state
+	
+	:param trafficStage: Current traffic stage (int)
+
+	:returns: State of main traffic light (int). 0 is red, 1 is yellow, 2 is green.
+	"""
+
+	return lightStates[trafficStage][0]
 
 def traffic_operation(board: pm.Pymata4, normalModeTime: float) -> None:
-    global lastTrafficStage
-    
-    currentStage = get_traffic_stage(normalModeTime)[0]
-    stageStates = lightStates[currentStage]
-    
-    if currentStage != lastTrafficStage:
-        lastTrafficStage = currentStage
+	"""Operates outputs of the system.
+	
+	:param board: arduino board
+	:param normalModeTime: Time spent in normal operating mode, in seconds (float)
+	"""
 
-        for i in range(3):
-            board.digital_write(mainLights[i], stageStates[0] == i)
-            board.digital_write(sideLights[i], stageStates[1] == i)
+	global lastTrafficStage, lastBlinkState
+	
+	currentStage = get_traffic_stage(normalModeTime)[0]
+	stageStates = lightStates[currentStage]
+	
+	if currentStage != lastTrafficStage:
+		lastTrafficStage = currentStage
 
-            if i != 2:
-                board.digital_write(pedLights[i], stageStates[2] == i)
+		for i in range(3):
+			board.digital_write(mainLights[i], stageStates[0] == i)
+			board.digital_write(sideLights[i], stageStates[1] == i)
 
-    if stageStates[2] == 2:
-        board.digital_write(pedLights[1], (normalModeTime % (1/blinkFrequency)) * blinkFrequency < 0.5)
+			if i != 2:
+				board.digital_write(pedLights[i], stageStates[2] == i)
 
+	blinkState = (normalModeTime % (1/blinkFrequency)) * blinkFrequency < 0.5
+	if stageStates[2] == 2 and blinkState != lastBlinkState:
+		board.digital_write(pedLights[1], blinkState)
+		lastBlinkState = blinkState
