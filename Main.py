@@ -109,7 +109,7 @@ def init_normal_operation() -> None:
 	# set the distance print and poll to first trigger when entering normal operation
 	nextUltrasonicReadTime = normalModeEnterTime
 	nextDistancePrintTime = normalModeEnterTime
-	lastPollTime = normalModeEnterTime
+	lastPollTime = normalModeEnterTime - pollLoopInterval
 
 	pedestrianCount = 0
 

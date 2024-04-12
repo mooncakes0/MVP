@@ -7,8 +7,8 @@ Version: 1.1
 from pymata4 import pymata4
 import time
 
-sevenSegPins = [2, 3, 4, 5, 6, 7, 8]
-segmentEnablePins = (9, 10, 11, 12)
+sevenSegPins = (3, 4, 5, 6, 7, 8, 9)
+digitEnablePins = (10, 11, 12, 13)
 
 lookupTable = {
 	" ": (0, 0, 0, 0, 0, 0, 0),
@@ -85,8 +85,11 @@ def show_character(board: pymata4.Pymata4, char: str, index: int) -> None:
 	:param index: 7-seg character index.
 	"""
 
+	for pin in sevenSegPins:
+		board.digital_write(pin, 0)
+
 	for i in range(4):
-		board.digital_write(segmentEnablePins[i], i == index)
+		board.digital_write(digitEnablePins[i], i != index)
 	
 	states = lookupTable[char]
 	for i in range(7):
@@ -101,13 +104,18 @@ def get_message(time: float) -> str:
 	:returns: Message to display, as a string.
 	"""
 
-	messageIndex = time % (len(messages) * messageTime) // messageTime
+	messageIndex = int(time % (len(messages) * messageTime) // messageTime)
 	return messages[messageIndex]
 
 
 if __name__ == "__main__":
 	board = pymata4.Pymata4()
 	initialTime = time.time()
+
+	for pin in sevenSegPins + digitEnablePins:
+		board.set_pin_mode_digital_output(pin)
+
+	time.sleep(1)
 
 	try:
 		while True:
