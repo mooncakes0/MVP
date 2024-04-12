@@ -162,7 +162,7 @@ def normal_operation() -> None:
 
 			# During a red light, check if vehicle is predicted to not stop in time
 			# Using the constant acceleration formula v^2 = u^2 + 2as
-			if speed > 0 and lightState == 0 and speed**2 / 2 / maxVehicleDeceleration > ultrasonicReadings[-1]:
+			if speed > 0 and lightState == 0 and speed**2 / 2 / maxVehicleDeceleration > ultrasonicReadings[-1][1]:
 				print("ALERT: Vehicle likely run a red light.")
 
 			# During a green light, issue an alert if vehicle seems to not be moving after 3 seconds
