@@ -54,21 +54,22 @@ def main() -> None:
 
 	while True:
 		try:
-			if operationMode == serviceModeConstant:
-				service_mode()
-			if operationMode == normalModeConstant:
-				normal_operation()
-			if operationMode == maintenanceModeConstant:
-				maintenance_mode()
-				operationMode = serviceModeConstant
-			if operationMode == dataObservationModeConstant:
-				data_observation_mode()
-				operationMode = serviceModeConstant
+			while True:
+				if operationMode == serviceModeConstant:
+					service_mode()
+				if operationMode == normalModeConstant:
+					normal_operation()
+				if operationMode == maintenanceModeConstant:
+					maintenance_mode()
+					operationMode = serviceModeConstant
+				if operationMode == dataObservationModeConstant:
+					data_observation_mode()
+					operationMode = serviceModeConstant
 		except KeyboardInterrupt:
 			if operationMode == serviceModeConstant:
 				break
 			operationMode = serviceModeConstant
-	
+
 	shutdown()
 
 def init() -> None:

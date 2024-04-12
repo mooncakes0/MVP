@@ -109,10 +109,10 @@ if __name__ == "__main__":
 	board = pymata4.Pymata4()
 	initialTime = time.time()
 
-	while True:
-		try:
+	try:
+		while True:
 			display_message(board, get_message(time.time() - initialTime))
-		except KeyboardInterrupt:
-			break
+	except KeyboardInterrupt:
+		pass
 	
 	board.shutdown()
