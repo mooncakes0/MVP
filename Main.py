@@ -52,6 +52,7 @@ def main() -> None:
 
 	init()
 
+	# weird double while true loop to avoid KeyboardInterrupts from going uncaught
 	while True:
 		try:
 			while True:
@@ -74,6 +75,7 @@ def main() -> None:
 
 def init() -> None:
 	"""Initializes program variables"""
+
 	global board, operationMode, incorrectPINInputs, PINTimeoutTime
 
 	operationMode = serviceModeConstant
@@ -87,11 +89,10 @@ def init() -> None:
 	inputs.init(board)
 	outputs.init(board)
 
-	time.sleep(0.5)
-
 
 def shutdown() -> None:
 	"""Shuts down the board, and allows other subsystems to call their own shutdown methods."""
+	
 	outputs.shutdown(board)
 
 	# noticed in testing that not adding a delay caused the board to shut down before some commands were excecuted
@@ -131,7 +132,8 @@ def poll_sensors():
 
 def normal_operation() -> None:
 	"""Standard operating mode.
-	Polls sensors and stores relevant data, as well as operating system outputs."""
+	Polls sensors and stores relevant data, as well as operating system outputs.
+	"""
 
 	global lastTrafficStage, pedestrianCount, nextDistancePrintTime, nextUltrasonicReadTime, lastPollTime
 	

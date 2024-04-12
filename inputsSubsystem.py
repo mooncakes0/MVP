@@ -78,7 +78,8 @@ def pedestrian_button_pressed(board: pymata4.Pymata4) -> bool:
 	if currentState != previousState:
 		previousState = currentState
 		lastButtonChangeTime = time.time()
-		# check if the current state is 1 or 0 as instances where current and previous are different but current is 0
+		# return True if the button is currently pressed
+		# this code is only reached if the button state changed
 		if currentState == 1:
 			return True
 	return False
