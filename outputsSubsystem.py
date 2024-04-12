@@ -30,6 +30,7 @@ blinkFrequency = 3 # in hertz
 
 lastTrafficStage = -1
 stageTimes = (30, 3, 3, 30, 3, 3)
+lastBlinkState = False
 
 
 def init(board: pm.Pymata4) -> None:
@@ -78,8 +79,16 @@ def get_main_light_state(trafficStage: int) -> int:
 	:returns: State of main traffic light (int). 0 is red, 1 is yellow, 2 is green.
 	"""
 
+	return lightStates[trafficStage][0]
+
 def traffic_operation(board: pm.Pymata4, normalModeTime: float) -> None:
-	global lastTrafficStage
+	"""Operates outputs of the system.
+	
+	:param board: arduino board
+	:param normalModeTime: Time spent in normal operating mode, in seconds (float)
+	"""
+
+	global lastTrafficStage, lastBlinkState
 	
 	currentStage = get_traffic_stage(normalModeTime)[0]
 	stageStates = lightStates[currentStage]
@@ -94,5 +103,7 @@ def traffic_operation(board: pm.Pymata4, normalModeTime: float) -> None:
 			if i != 2:
 				board.digital_write(pedLights[i], stageStates[2] == i)
 
-	if stageStates[2] == 2:
-		board.digital_write(pedLights[1], (normalModeTime % (1/blinkFrequency)) * blinkFrequency < 0.5)
+	blinkState = (normalModeTime % (1/blinkFrequency)) * blinkFrequency < 0.5
+	if stageStates[2] == 2 and blinkState != lastBlinkState:
+		board.digital_write(pedLights[1], blinkState)
+		lastBlinkState = blinkState
