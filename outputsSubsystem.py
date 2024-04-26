@@ -37,7 +37,7 @@ def init(board: pm.Pymata4) -> None:
 	
 	:param board: The arduino board to set up.
 	"""
-	
+
 	for i in (mainLights + sideLights + pedLights):
 		board.set_pin_mode_digital_output(i)
 

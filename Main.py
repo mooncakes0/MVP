@@ -2,7 +2,7 @@
 This file makes up the control and service subsystems
 Created by: Evgeny Solomin
 Created Date: 03/04/2024
-Version: 1.3
+Version: 1.4
 """
 
 import time
@@ -137,7 +137,10 @@ def normal_operation() -> None:
 
 	global lastTrafficStage, pedestrianCount, nextDistancePrintTime, nextUltrasonicReadTime, lastPollTime
 	
-	if inputs.pedestrian_button_pressed(board):
+	if inputs.pedestrian_button_pressed(board, 0):
+		pedestrianCount += 1
+	
+	if inputs.pedestrian_button_pressed(board, 1):
 		pedestrianCount += 1
 	
 	normalModeTime = time.time() - normalModeEnterTime
