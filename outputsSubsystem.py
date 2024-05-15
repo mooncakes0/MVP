@@ -57,9 +57,9 @@ stage5BuzzerState = 0
 
 outputsModified = False
 
-auxSerPin = 16 # A2
-auxSrClkPin = 17 # A3
-auxRClkPin = 18 # A4
+auxSerPin = 17 # A3
+auxSrClkPin = 18 # A4
+auxRClkPin = 19 # A5
 
 
 def init(board: pymata4.Pymata4) -> None:
@@ -227,7 +227,7 @@ def update(board: pymata4.Pymata4) -> None:
 	sevenSegMessage += f" - {InputsSubsystem.get_LDR_reading() / 1023:3.0f}"
 	SevenSeg.set_message(sevenSegMessage, False)
 
-	blinkState = (trafficStageTimer % (1 / blinkFrequency)) * blinkFrequency < 0.5
+	blinkState = (currentStageTime % (1 / blinkFrequency)) * blinkFrequency < 0.5
 	if stageStates[2] == 2 and blinkState != pedLightStates[1]:
 		pedLightStates[1] = blinkState
 		outputsModified = True
@@ -248,7 +248,7 @@ def update(board: pymata4.Pymata4) -> None:
 			outputsModified = True
 
 	if get_main_light_state() == 1 and InputsSubsystem.get_vehicle_distance(board) < yellowLightExtensionDistance:
-		trafficStageTimer = min(trafficStageTimer, 3)
+		trafficStageTimer = max(trafficStageTimer, 3)
 
 	if overHeightBuzzerTimer > 0:
 		overHeightBuzzerTimer -= deltaTime

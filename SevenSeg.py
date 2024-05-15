@@ -64,11 +64,11 @@ currentMessage = ' ' * 4
 messageStartTime = 0
 messageScrollSpeed = 0.3
 
-serPin = 6
-srClkPin = 7
-rClkPin = 8
+serPin = 7
+srClkPin = 8
+rClkPin = 9
 
-digitPins = [9, 10, 11, 12]
+digitPins = [10, 11, 12, 13]
 
 def init(board: pymata4.Pymata4):
 	"""Sets up the connected board.

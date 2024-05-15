@@ -110,4 +110,4 @@ def get_mode_switch_state(board: pymata4.Pymata4) -> bool:
 
 
 def get_LDR_reading(board: pymata4.Pymata4) -> float:
-	return board.analog_read(ldrPin)[0]
+	return board.analog_read(ldrPin - 14)[0]
