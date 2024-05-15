@@ -1,0 +1,39 @@
+INPUTS:
+
+Pins 2-5: ultrasonics
+2 and 4 are trigger pins, 3 and 5 are echo pins
+
+Pin 6: Mode override switch
+
+Pins A0-A1: Pedestrian buttons
+
+Pin A2: LDR
+
+
+OUTPUTS:
+
+Pins 7-9: 7-seg shift register
+Pin 7 goes to SER, 8 to SRCLK, 9 to RCLK
+
+Pins 10-13: 7-seg ground
+10 to digit 1, 11 to digit 2, 12 to digit 3, 13 to digit 4
+
+Pins A3-A5: Auxillary shift registers
+Pin A3 to SER, A4 to SRCLK, A5 to RCLK
+This shift register (needs to be 2 chained ones) controls the 8 road LEDs (8 pins), a 556 that controls the over-height buzzer and RGB LED (2 pins, one for each timer),
+a 556 to contol maintenance mode LEDs (1 pin), a 556 for stage 4 and 5 buzzers (2 pins)
+
+Auxillary shift registers:
+QA1 - Main road red LED
+QB1 - Main road yellow LED
+QC1 - Main road green LED
+QD1 - Side road red LED
+QE1 - Side road yellow LED
+QF1 - Side road green LED
+QG1 - Pedestrian red LED
+QH1 - Pedestrian green LED
+QA2 - Over height buzzer 556 OE (556_1 OE1)
+QB2 - Over height LED 556 OE (556_1 OE2)
+QC2 - Maintenance mode 556 OE (556_2 OE1)
+QD2 - Stage 4 556 OE (556_3 OE1)
+QE2 - Stage 5 556 OE (556_3 OE2)

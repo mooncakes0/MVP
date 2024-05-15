@@ -1,21 +1,22 @@
 """Module to control outputs for Milestone 2 of MVP
 Created by: Jackie Hong, Evgeny Solomin
 Created Date: 04/04/2024
-Version: 1.2
+Version: 2.0
 """
-from pymata4 import pymata4 as pm
 
-# list of pins needed for each light system
-# index 0 = red,   index 1 = yellow,     index 2 = green
-# for pedestrian lights, 0 is red, 1 is green
-mainLights = [4, 5, 6]
-sideLights = [7, 8, 9]
-pedLights = [10, 11]
+import time
+from pymata4 import pymata4
+
+import InputsSubsystem
+
+import SevenSeg
+import ShiftReg
 
 # the state of each light during each traffic stage
 # first column is main lights
 # second is side road lights
 # third is pedestrian lights
+# 0 is red, 1 is yellow, 2 is green
 # for pedestrian lights, 2 means flashing green
 lightStates = {
 	1: (2, 0, 0),
@@ -26,33 +27,136 @@ lightStates = {
 	6: (0, 0, 0)
 }
 blinkFrequency = 3 # in hertz
+heightLimit = 20
+yellowLightExtensionDistance = 50
 
-lastTrafficStage = -1
-stageTimes = (30, 3, 3, 30, 3, 3)
-lastBlinkState = False
+trafficStage = 0
+
+trafficStageTimer = 0
+currentStageTime = 0
+lastUpdateTime = 0
+
+sevenSegRefreshes = 0
+
+stageTimes = [30, 3, 3, 30, 3, 3]
+
+overHeightBuzzerTimer = -1
+overHeightLEDTimer = -1
+
+mainLightStates = [0, 0, 0]
+sideLightStates = [0, 0, 0]
+pedLightStates = [0, 0]
+
+overHeightBuzzerState = 0
+overHeightLEDState = 0
+
+maintenanceLEDsState = 0
+
+stage4BuzzerState = 0
+stage5BuzzerState = 0
+
+outputsModified = False
+
+auxSerPin = 16 # A2
+auxSrClkPin = 17 # A3
+auxRClkPin = 18 # A4
 
 
-def init(board: pm.Pymata4) -> None:
+def init(board: pymata4.Pymata4) -> None:
 	"""Initializes output variables and board pins.
 	
 	:param board: The arduino board to set up.
 	"""
 
-	for i in (mainLights + sideLights + pedLights):
-		board.set_pin_mode_digital_output(i)
+	board.set_pin_mode_digital_output(auxSerPin)
+	board.set_pin_mode_digital_output(auxSrClkPin)
+	board.set_pin_mode_digital_output(auxRClkPin)
+
+	SevenSeg.init(board)
+	ShiftReg.init(auxSerPin, auxSrClkPin, auxRClkPin)
+
+	reset()
 
 
-def shutdown(board: pm.Pymata4) -> None:
-	"""Does any required cleanup.
+def set_maintenance_LEDs(board: pymata4.Pymata4, state: bool) -> None:
+	global maintenanceLEDsState, outputsModified
+
+	maintenanceLEDsState = state
+	outputsModified = True
+	write_outputs(board)
+
+
+def reset(board: pymata4.Pymata4) -> None:
+	"""Shuts off all outputs.
 	
-	:param board: The arduino board to shut down.
+	:param board: The Pymata4 board.
 	"""
 
-	for i in (mainLights + sideLights + pedLights):
-		board.digital_write(i, 0)
+	global trafficStage, trafficStageTimer, lastUpdateTime, currentStageTime
+	global mainLightStates, sideLightStates, pedLightStates, overHeightBuzzerState, overHeightLEDState, maintenanceLEDsState, stage4BuzzerState, stage5BuzzerState, outputsModified
+	global overHeightBuzzerTimer, overHeightLEDTimer
+	global sevenSegRefreshes
+	
+	trafficStage = 0
+	trafficStageTimer = stageTimes[0]
+	currentStageTime = 0
+	lastUpdateTime = time.time()
+	sevenSegRefreshes = 0
+
+	reset(board)
+	for i in range(3):
+		mainLightStates[i] = 0
+		sideLightStates[i] = 0
+
+		if i != 2:
+			pedLightStates[i] = 0
+	
+	overHeightBuzzerState = 0
+	overHeightLEDState = 0
+	maintenanceLEDsState = 0
+	stage4BuzzerState = 0
+	stage5BuzzerState = 0
+
+	overHeightBuzzerTimer = -1
+	overHeightLEDTimer = -1
+
+	write_outputs(board, True)
 
 
-def get_traffic_stage(normalModeTime: float) -> tuple[int, float, float]:
+def write_outputs(board: pymata4.Pymata4, forceWrite: bool = False):
+	"""Updates the physical output components by pushing new data into the auxillary shift register.
+	
+	:param board: Pymata4 board.
+	:param forceWrite: [optional] Whether to forcefully write the current values, regardless of whether they were modified.
+	"""
+
+	global outputsModified 
+
+	if not outputsModified and not forceWrite:
+		return
+
+	sequence = []
+
+	sequence += mainLightStates
+	sequence += sideLightStates
+	sequence += pedLightStates
+
+	sequence.append(overHeightBuzzerState)
+	sequence.append(overHeightLEDState)
+	sequence.append(maintenanceLEDsState)
+	sequence.append(stage4BuzzerState)
+	sequence.append(stage5BuzzerState)
+
+	ShiftReg.write_shift_reg(board, auxSerPin, auxSrClkPin, auxRClkPin, sequence, True)
+
+	outputsModified = False
+
+
+def get_main_light_state() -> int:
+	return lightStates[trafficStage][0]
+
+
+def update_traffic_stage(deltaTime: float) -> None:
 	"""Returns the current traffic stage (1-6) based on the time spent in normal operation mode.
 	
 	:param normalModeTime: Time spent in normal operation mode.
@@ -62,48 +166,108 @@ def get_traffic_stage(normalModeTime: float) -> tuple[int, float, float]:
 	Time in current traffic stage and time until next traffic stage are given in seconds, as floats.
 	"""
 
-	totalStageTime = sum(stageTimes)
-	timeMod = normalModeTime % totalStageTime
-	runningTotal = 0
-	for i in range(len(stageTimes)):
-		if timeMod - runningTotal < stageTimes[i]:
-			return (i + 1, timeMod - runningTotal, stageTimes[i] - (timeMod - runningTotal))
-		runningTotal += stageTimes[i]
-	return len(stageTimes)
+	global trafficStageTimer, trafficStage, currentStageTime
+	global sevenSegRefreshes
 
-def get_main_light_state(trafficStage: int) -> int:
-	"""Returns the state of the main traffic light during the given state
-	
-	:param trafficStage: Current traffic stage (int)
+	trafficStageTimer -= deltaTime
 
-	:returns: State of main traffic light (int). 0 is red, 1 is yellow, 2 is green.
-	"""
+	if trafficStageTimer < 0:
+		print(f"Nominal 7-segment refresh rate: {currentStageTime / sevenSegRefreshes:.2f} Hz.")
 
-	return lightStates[trafficStage][0]
+		trafficStage += 1
+		trafficStage %= len(stageTimes)
+		trafficStageTimer += stageTimes[trafficStage]
+		currentStageTime = 0
+		sevenSegRefreshes = 0
 
-def traffic_operation(board: pm.Pymata4, normalModeTime: float) -> None:
+
+def update(board: pymata4.Pymata4) -> None:
 	"""Operates outputs of the system.
 	
 	:param board: arduino board
 	:param normalModeTime: Time spent in normal operating mode, in seconds (float)
 	"""
 
-	global lastTrafficStage, lastBlinkState
+	global mainLightStates, sideLightStates, pedLightStates, outputsModified, lastUpdateTime
+	global trafficStageTimer, currentStageTime
+	global overHeightBuzzerState, overHeightBuzzerTimer
+	global overHeightLEDState, overHeightLEDTimer
+	global stage4BuzzerState, stage5BuzzerState
+	global sevenSegRefreshes
 	
-	currentStage = get_traffic_stage(normalModeTime)[0]
-	stageStates = lightStates[currentStage]
-	
-	if currentStage != lastTrafficStage:
-		lastTrafficStage = currentStage
+	deltaTime = time.time() - lastUpdateTime
+	lastUpdateTime = time.time()
+	currentStageTime += deltaTime
 
+	# In stage 1, set remaining time to 5 seconds if one of the ped buttons is pressed
+	pedButtonPressed = InputsSubsystem.pedestrian_button_pressed(board, 0) or \
+		InputsSubsystem.pedestrian_button_pressed(board, 1)
+
+	if trafficStage == 0 and pedButtonPressed:
+		trafficStageTimer = min(trafficStageTimer, 5)
+
+	prevTrafficStage = trafficStage
+	update_traffic_stage(deltaTime)
+	stageStates = lightStates[trafficStage]
+	
+	if trafficStage != prevTrafficStage:
 		for i in range(3):
-			board.digital_write(mainLights[i], stageStates[0] == i)
-			board.digital_write(sideLights[i], stageStates[1] == i)
+			mainLightStates[i] = stageStates[0] == i
+			sideLightStates[i] = stageStates[1] == i
 
 			if i != 2:
-				board.digital_write(pedLights[i], stageStates[2] == i)
+				pedLightStates[i] = stageStates[2] == i
+		
+		stage4BuzzerState = int(trafficStage == 3)
+		stage5BuzzerState = int(trafficStage == 4)
 
-	blinkState = (normalModeTime % (1/blinkFrequency)) * blinkFrequency < 0.5
-	if stageStates[2] == 2 and blinkState != lastBlinkState:
-		board.digital_write(pedLights[1], blinkState)
-		lastBlinkState = blinkState
+		outputsModified = True
+
+	sevenSegMessage = f"SG {trafficStage + 1}: {str(int(stageTimes[trafficStage] - currentStageTime)):2d} s"
+	sevenSegMessage += f" - {InputsSubsystem.get_LDR_reading() / 1023:3.0f}"
+	SevenSeg.set_message(sevenSegMessage, False)
+
+	blinkState = (trafficStageTimer % (1 / blinkFrequency)) * blinkFrequency < 0.5
+	if stageStates[2] == 2 and blinkState != pedLightStates[1]:
+		pedLightStates[1] = blinkState
+		outputsModified = True
+	
+	if InputsSubsystem.get_vehicle_height(board) > heightLimit:
+		overHeightBuzzerTimer = 2
+		overHeightLEDTimer = 6
+
+		if overHeightBuzzerState == 0 and overHeightLEDState == 0:
+			print("WARNING: Vehicle exceeding maximum height detected.")
+
+		if overHeightBuzzerState == 0:
+			overHeightBuzzerState = 1
+			outputsModified = True
+
+		if overHeightLEDState == 0:
+			overHeightLEDState = 1
+			outputsModified = True
+
+	if get_main_light_state() == 1 and InputsSubsystem.get_vehicle_distance(board) < yellowLightExtensionDistance:
+		trafficStageTimer = min(trafficStageTimer, 3)
+
+	if overHeightBuzzerTimer > 0:
+		overHeightBuzzerTimer -= deltaTime
+
+		if overHeightBuzzerTimer <= 0:
+			overHeightBuzzerState = 0
+			outputsModified = True
+
+	if overHeightLEDTimer > 0:
+		overHeightLEDTimer -= deltaTime
+
+		if overHeightLEDTimer <= 0:
+			overHeightLEDState = 0
+			outputsModified = True
+
+	write_outputs(board)
+
+	prevSevenSegChar = SevenSeg.lastCharDisplayed
+	SevenSeg.update(board)
+
+	if SevenSeg.lastCharDisplayed == 0 and prevSevenSegChar != 0:
+		sevenSegRefreshes += 1

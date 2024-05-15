@@ -1,14 +1,12 @@
-"""Module to output to a seven segment display.
-Created by: Evgeny Solomin.
-Created Date: 08/04/2024.
-Version: 1.1
+"""Module to control a seven segment display using a shift register for the digits.
+Written by: Evgeny Solomin
+Created Date: 13/05/2024
+Version: 1.2
 """
 
-from pymata4 import pymata4
 import time
-
-sevenSegPins = (3, 4, 5, 6, 7, 8, 9)
-digitEnablePins = (10, 11, 12, 13)
+from pymata4 import pymata4
+import ShiftReg
 
 lookupTable: dict[str, tuple[int]] = {
 	" ": (0, 0, 0, 0, 0, 0, 0),
@@ -41,6 +39,7 @@ lookupTable: dict[str, tuple[int]] = {
 	"P": (1, 1, 0, 0, 1, 1, 1),
 	"S": (1, 0, 1, 1, 0, 1, 1),
 	"U": (0, 1, 1, 1, 1, 1, 0),
+	"V": (0, 1, 1, 1, 1, 1, 0),
 	"Y": (0, 1, 1, 1, 0, 1, 1),
 	"Z": (1, 1, 0, 1, 1, 0, 1),
 	"a": (1, 1, 1, 1, 1, 0, 1),
@@ -60,68 +59,109 @@ lookupTable: dict[str, tuple[int]] = {
 	"u": (0, 0, 1, 1, 1, 0, 0)
 }
 
-messages = ["Ab12", "HELP", "M2"]
-messageTime = 3
+lastCharDisplayed = 0
+currentMessage = ' ' * 4
+messageStartTime = 0
+messageScrollSpeed = 0.3
 
+serPin = 6
+srClkPin = 7
+rClkPin = 8
 
-def display_message(board: pymata4.Pymata4, message: str) -> None:
-	"""Displays a message on the seven segment display."""
+digitPins = [9, 10, 11, 12]
 
-	if len(message) > 4:
-		message = message[0:4]
-
-	for i in range(0, min(4, len(message))):
-		char = message[-1 - i]
-		if char in lookupTable:
-			show_character(board, char, 3 - i)
-		elif char.swapcase() in lookupTable:
-			show_character(board, char.swapcase(), 3 - i)
-
-
-def show_character(board: pymata4.Pymata4, char: str, index: int) -> None:
-	"""Displays a character on a given segment of the seven segment display.
+def init(board: pymata4.Pymata4):
+	"""Sets up the connected board.
 	
-	:param board: Arduino board.
-	:param char: Character to display.
-	:param index: 7-seg character index.
+	:param board: Pymata board
 	"""
+	ShiftReg.init(board, serPin, srClkPin, rClkPin)
+	for pin in digitPins:
+		board.set_pin_mode_digital_output(pin)
 
-	for pin in sevenSegPins:
-		board.digital_write(pin, 0)
 
-	for i in range(4):
-		board.digital_write(digitEnablePins[i], i != index)
+def set_message(message: str, resetScroll: bool = True):
+	"""Sets the message displayed on the seven segment display.
 	
-	states = lookupTable[char]
-	for i in range(7):
-		board.digital_write(sevenSegPins[i], states[i])
-
-
-def get_message(time: float) -> str:
-	"""Gets the message that should currently be displayed.
-	
-	:param time: current time (since startup).
-
-	:returns: Message to display, as a string.
+	:param message: New message to show
+	:param resetScroll: Whether to reset the message scrolling or to continue where it was before.
+	Message scrolling will reset regardless of this parameter if the new message is a different length.
 	"""
+	global currentMessage, messageStartTime
 
-	messageIndex = int(time % (len(messages) * messageTime) // messageTime)
-	return messages[messageIndex]
+	prevMessageLen = len(currentMessage)
 
+	# If the message is less than 4 characters in length, the scrolling will need to act slightly differently
+	if len(message) < 4:
+		currentMessage = message.rjust(4) + ' ' * (4 - len(message))
+		if len(message) > 1:
+			currentMessage += message[0:-2]
+	else:
+		# If the message is at least 4 characters, make the stored message string the message, 4 spaces and the first 3 characters of the new message
+		currentMessage = message + "    " + message[0:3]
+	
+	if resetScroll or len(currentMessage) != prevMessageLen:
+		messageStartTime = time.time()
+
+
+def update(board: pymata4.Pymata4) -> None:
+	"""Refreshes the seven segment display to show the next character in the message and scrolls the message.
+
+	:param board: Connected pymata board.
+	"""
+	global lastCharDisplayed
+
+	# Calculate the current scroll position by dividing the time since the message was set by the time per scroll
+	# Then, take that mod (stored message length - 3), which will tell us the beginning of the "window" for the current 4 characters to show on the screen
+	messageScroll = int(((time.time() - messageStartTime) // messageScrollSpeed) % (len(currentMessage) - 3))
+	# Create a submessage which discards all the characters before the "window"
+	subMessage = currentMessage[messageScroll:]
+
+	currentChar = subMessage[lastCharDisplayed]
+	charSequence = (0) * 8
+	if currentChar in lookupTable:
+		charSequence = lookupTable[currentChar]
+	elif currentChar.swapcase() in lookupTable:
+		charSequence = lookupTable[currentChar.swapcase()]
+	
+	for pin in digitPins:
+		board.digital_write(pin, 1)
+	ShiftReg.write_shift_reg(board, serPin, srClkPin, rClkPin, charSequence, True)
+	board.digital_write(digitPins[lastCharDisplayed], 0)
+
+	lastCharDisplayed += 1
+	lastCharDisplayed %= 4
+
+
+def shutdown(board: pymata4.Pymata4) -> None:
+	"""Clears the output of the seven segment display.
+	
+	:param board: Pymata board
+	"""
+	for pin in digitPins:
+		board.digital_write(pin, 1)
+	ShiftReg.write_shift_reg(board, serPin, srClkPin, rClkPin, [0] * 8)
 
 if __name__ == "__main__":
 	board = pymata4.Pymata4()
-	initialTime = time.time()
 
-	for pin in sevenSegPins + digitEnablePins:
+	board.set_pin_mode_digital_output(serPin)
+	board.set_pin_mode_digital_output(srClkPin)
+	board.set_pin_mode_digital_output(rClkPin)
+	for pin in digitPins:
 		board.set_pin_mode_digital_output(pin)
 
 	time.sleep(1)
 
+	set_message("HELLO I LIVE")
+	# set_message("1234567890")
+
 	try:
 		while True:
-			display_message(board, get_message(time.time() - initialTime))
+			update(board)
 	except KeyboardInterrupt:
 		pass
-	
+
+	shutdown(board)
+	time.sleep(0.5)
 	board.shutdown()

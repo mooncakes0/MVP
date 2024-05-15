@@ -9,8 +9,8 @@ import time
 from pymata4 import pymata4
 import matplotlib.pyplot as ppl
 
-import inputsSubsystem as inputs
-import outputsSubsystem as outputs
+import InputsSubsystem as inputs
+import OutputsSubsystem as outputs
 
 # ===== User modifiable variables ===== 
 maintenancePIN = "1234"
@@ -39,6 +39,7 @@ nextDistancePrintTime = 0
 nextUltrasonicReadTime = 0
 lastPollTime = 0
 maxVehicleDeceleration = 20 # used for system alerts. In cm/s^2
+stallTime = 0
 
 # service mode variables
 PINTimeoutTime = 0
@@ -56,16 +57,25 @@ def main() -> None:
 	while True:
 		try:
 			while True:
+				if inputs.get_mode_switch_state() and operationMode == normalModeConstant:
+					operationMode = serviceModeConstant
+
 				if operationMode == serviceModeConstant:
 					service_mode()
+					continue
 				if operationMode == normalModeConstant:
 					normal_operation()
+					continue
 				if operationMode == maintenanceModeConstant:
+					outputs.set_maintenance_LEDs(board, True)
 					maintenance_mode()
+					outputs.set_maintenance_LEDs(board, False)
 					operationMode = serviceModeConstant
+					continue
 				if operationMode == dataObservationModeConstant:
 					data_observation_mode()
 					operationMode = serviceModeConstant
+					continue
 		except KeyboardInterrupt:
 			if operationMode == serviceModeConstant:
 				break
@@ -93,7 +103,7 @@ def init() -> None:
 def shutdown() -> None:
 	"""Shuts down the board, and allows other subsystems to call their own shutdown methods."""
 	
-	outputs.shutdown(board)
+	outputs.reset(board)
 
 	# noticed in testing that not adding a delay caused the board to shut down before some commands were excecuted
 	time.sleep(1)
@@ -136,6 +146,7 @@ def normal_operation() -> None:
 	"""
 
 	global lastTrafficStage, pedestrianCount, nextDistancePrintTime, nextUltrasonicReadTime, lastPollTime
+	global stallTime
 	
 	if inputs.pedestrian_button_pressed(board, 0):
 		pedestrianCount += 1
@@ -143,14 +154,14 @@ def normal_operation() -> None:
 	if inputs.pedestrian_button_pressed(board, 1):
 		pedestrianCount += 1
 	
-	normalModeTime = time.time() - normalModeEnterTime
-	trafficStage, currentStageTime, nextStageTime = outputs.get_traffic_stage(normalModeTime)
-	if trafficStage != lastTrafficStage:
-		print(f"Changing to traffic stage {trafficStage}.")
+	if outputs.trafficStage != lastTrafficStage:
+		lastTrafficStage = outputs.trafficStage
 
-		if trafficStage == 1:
+		print(f"Changing to traffic stage {outputs.trafficStage + 1}.")
+
+		if outputs.trafficStage == 1:
 			pedestrianCount = 0
-		elif trafficStage == 3:
+		elif outputs.trafficStage == 3:
 			print(f"There were {pedestrianCount} pedestrians in this traffic cycle.")
 
 	if time.time() >= nextUltrasonicReadTime:
@@ -164,7 +175,7 @@ def normal_operation() -> None:
 
 		if len(ultrasonicReadings) >= 2:
 			speed = (ultrasonicReadings[-2][1] - ultrasonicReadings[-1][1]) / pollLoopTime
-			lightState = outputs.get_main_light_state(trafficStage)
+			lightState = outputs.get_main_light_state()
 
 			# During a red light, check if vehicle is predicted to not stop in time
 			# Using the constant acceleration formula v^2 = u^2 + 2as
@@ -172,19 +183,20 @@ def normal_operation() -> None:
 				print("ALERT: Vehicle likely run a red light.")
 
 			# During a green light, issue an alert if vehicle seems to not be moving after 3 seconds
-			if lightState == 2 and currentStageTime > 3 and -1 / pollLoopTime <= speed <= 1 / pollLoopTime:
-				print("ALERT: Vehicle stalling at green light.")
+			if lightState == 2 and -1 / pollLoopTime <= speed <= 1 / pollLoopTime:
+				stallTime += pollLoopInterval
+
+				if stallTime > 3 and stallTime - pollLoopInterval <= 3:
+					print("ALERT: Vehicle stalling at green light.")
+			else:
+				stallTime = 0
 	
 	if time.time() >= nextDistancePrintTime and len(ultrasonicReadings):
 		print(f"Last distance reading: {ultrasonicReadings[-1][1]:.2f} cm")
 	
 		nextDistancePrintTime += distancePrintDelay
 	
-	outputs.traffic_operation(board, normalModeTime)
-
-	lastTrafficStage = trafficStage
-
-	# time.sleep(0.05)
+	outputs.update(board)
 
 
 def service_mode() -> None:
