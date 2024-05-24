@@ -14,7 +14,7 @@ import OutputsSubsystem as outputs
 
 # ===== User modifiable variables ===== 
 maintenancePIN = "1234"
-maxPINAttempts = 4
+maxPINAttempts = 3
 incorrectPINTimeout = 120
 pollLoopInterval = 1.5
 distancePrintDelay = 2
@@ -24,6 +24,7 @@ serviceModeConstant = "service"
 normalModeConstant = "normal"
 dataObservationModeConstant = "dataObservation"
 maintenanceModeConstant = "maintenance"
+exitConstant = "exit"
 
 # ===== Program variables =====
 # general variables
@@ -35,6 +36,8 @@ normalModeEnterTime = 0
 lastTrafficStage = None
 pedestrianCount = 0
 ultrasonicReadings = []
+vehicleDistance = 0
+vehicleHeight = 0
 nextDistancePrintTime = 0
 nextUltrasonicReadTime = 0
 lastPollTime = 0
@@ -52,12 +55,12 @@ def main() -> None:
 	global operationMode
 
 	init()
-
+ 
 	# weird double while true loop to avoid KeyboardInterrupts from going uncaught
-	while True:
+	while operationMode != exitConstant:
 		try:
-			while True:
-				if inputs.get_mode_switch_state() and operationMode == normalModeConstant:
+			while operationMode != exitConstant:
+				if inputs.get_mode_switch_state(board) and operationMode == normalModeConstant:
 					operationMode = serviceModeConstant
 
 				if operationMode == serviceModeConstant:
@@ -78,8 +81,10 @@ def main() -> None:
 					continue
 		except KeyboardInterrupt:
 			if operationMode == serviceModeConstant:
-				break
-			operationMode = serviceModeConstant
+				operationMode = exitConstant
+			else:
+				operationMode = serviceModeConstant
+			outputs.reset(board)
 
 	shutdown()
 
@@ -94,7 +99,9 @@ def init() -> None:
 
 	board = pymata4.Pymata4()
 
-	time.sleep(0.5)
+	time.sleep(1)
+
+	# board.set_sampling_interval(100000)
 
 	inputs.init(board)
 	outputs.init(board)
@@ -103,6 +110,8 @@ def init() -> None:
 def shutdown() -> None:
 	"""Shuts down the board, and allows other subsystems to call their own shutdown methods."""
 	
+	print("\nShutting down...")
+
 	outputs.reset(board)
 
 	# noticed in testing that not adding a delay caused the board to shut down before some commands were excecuted
@@ -123,21 +132,28 @@ def init_normal_operation() -> None:
 
 	pedestrianCount = 0
 
+	outputs.reset(board)
 
-def poll_sensors():
+
+def poll_sensors() -> None:
 	"""Polls the ultrasonic sensor and stores relevant data."""
 
-	global ultrasonicReadings
+	global ultrasonicReadings, vehicleHeight, vehicleDistance
 
-	ultrasonicDistance = inputs.get_filtered_ultrasonic(board)
+	ultrasonicDistance = inputs.get_vehicle_distance(board)
 	# only add reading to list if we got a valid distance
 	if ultrasonicDistance is not None:
+		vehicleDistance = ultrasonicDistance
 		ultrasonicReadings.append((time.time(), ultrasonicDistance))
 
 		# Remove excess data from the readings buffer
 		while (ultrasonicReadings[-1][0] - ultrasonicReadings[0][0] > 20 # Check if there is more than 20 seconds of data
 			and ultrasonicReadings[-1][0] - ultrasonicReadings[1][0] > 20):	# Ensure that there will still be more than 20 seconds of data left if a reading is removed
 			ultrasonicReadings.pop(0)
+
+	heightReading = inputs.get_vehicle_height(board)
+	if heightReading is not None:
+		vehicleHeight = heightReading
 
 
 def normal_operation() -> None:
@@ -147,11 +163,13 @@ def normal_operation() -> None:
 
 	global lastTrafficStage, pedestrianCount, nextDistancePrintTime, nextUltrasonicReadTime, lastPollTime
 	global stallTime
+
+	inputs.update(board)
 	
-	if inputs.pedestrian_button_pressed(board, 0):
+	if inputs.pedestrian_button_pressed(0):
 		pedestrianCount += 1
 	
-	if inputs.pedestrian_button_pressed(board, 1):
+	if inputs.pedestrian_button_pressed(1):
 		pedestrianCount += 1
 	
 	if outputs.trafficStage != lastTrafficStage:
@@ -196,7 +214,7 @@ def normal_operation() -> None:
 	
 		nextDistancePrintTime += distancePrintDelay
 	
-	outputs.update(board)
+	outputs.update(board, vehicleDistance, vehicleHeight)
 
 
 def service_mode() -> None:
@@ -207,10 +225,11 @@ def service_mode() -> None:
 	global operationMode
 
 	while operationMode == serviceModeConstant:
-		print("Available operating modes (press Ctrl + C to exit program):")
+		print("Available operating modes:")
 		print("1. Normal operation")
 		print("2. Data observation")
 		print("3. Maintenance")
+		print("4. Exit program")
 
 		opModeInput = input("Select operating mode to enter: ")
 		match opModeInput:
@@ -225,6 +244,8 @@ def service_mode() -> None:
 				if get_PIN_input():
 					operationMode = maintenanceModeConstant
 				break
+			case "4":
+				operationMode = exitConstant
 
 
 def get_PIN_input() -> bool:
@@ -274,7 +295,9 @@ def maintenance_mode() -> None:
 		print(f"3. Incorrect PIN timeout time: {incorrectPINTimeout} seconds")
 		print(f"4. Polling loop interval: {pollLoopInterval} seconds")
 		print(f"5. Distance print interval: {distancePrintDelay} seconds")
-		print("6. Exit maintenance mode")
+		print(f"6. Maximum vehicle height: {outputs.heightLimit} cm")
+		print(f"7. Max yellow light extension distance: {outputs.yellowLightExtensionDistance} cm")
+		print("8. Exit maintenance mode")
 
 		varToEdit = input()
 		match varToEdit:
@@ -352,6 +375,38 @@ def maintenance_mode() -> None:
 
 				distancePrintDelay = newPrintTime
 			case "6":
+				newMaxHeight = input("Enter new maximum vehicle height: ")
+
+				try:
+					newMaxHeight = float(newMaxHeight)
+				except ValueError:
+					print("Value must be a valid number.")
+					input("Press [Enter] to continue.")
+					continue
+					
+				if not 0 <= newMaxHeight <= 28:
+					print("Value must be between 0 and 28 cm.")
+					input("Press [Enter] to continue.")
+					continue
+
+				outputs.heightLimit = newMaxHeight
+			case "7":
+				newMaxDist = input("Enter new maximum vehicle height: ")
+
+				try:
+					newMaxDist = float(newMaxDist)
+				except ValueError:
+					print("Value must be a valid number.")
+					input("Press [Enter] to continue.")
+					continue
+					
+				if not 0 <= newMaxDist <= 50:
+					print("Value must be between 0 and 50 cm.")
+					input("Press [Enter] to continue.")
+					continue
+
+				outputs.yellowLightExtensionDistance = newMaxDist
+			case "8":
 				running = False
 
 

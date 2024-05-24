@@ -19,16 +19,16 @@ import ShiftReg
 # 0 is red, 1 is yellow, 2 is green
 # for pedestrian lights, 2 means flashing green
 lightStates = {
-	1: (2, 0, 0),
-	2: (1, 0, 0),
-	3: (0, 0, 0),
-	4: (0, 2, 1),
-	5: (0, 1, 2),
-	6: (0, 0, 0)
+	0: (2, 0, 0),
+	1: (1, 0, 0),
+	2: (0, 0, 0),
+	3: (0, 2, 1),
+	4: (0, 1, 2),
+	5: (0, 0, 0)
 }
 blinkFrequency = 3 # in hertz
 heightLimit = 20
-yellowLightExtensionDistance = 50
+yellowLightExtensionDistance = 30
 
 trafficStage = 0
 
@@ -37,6 +37,7 @@ currentStageTime = 0
 lastUpdateTime = 0
 
 sevenSegRefreshes = 0
+yellowLightExtensionUsed = False
 
 stageTimes = [30, 3, 3, 30, 3, 3]
 
@@ -73,12 +74,20 @@ def init(board: pymata4.Pymata4) -> None:
 	board.set_pin_mode_digital_output(auxRClkPin)
 
 	SevenSeg.init(board)
-	ShiftReg.init(auxSerPin, auxSrClkPin, auxRClkPin)
+	ShiftReg.init(board, auxSerPin, auxSrClkPin, auxRClkPin)
 
-	reset()
+	SevenSeg.set_message("HELLO")
+
+	reset(board)
+	write_outputs(board)
 
 
 def set_maintenance_LEDs(board: pymata4.Pymata4, state: bool) -> None:
+	"""Turns the maintenance mode flashing LEDs on or off.
+	
+	:param board: Pymata4 board.
+	:param state: Whether to turn the LEDs on or off.
+	"""
 	global maintenanceLEDsState, outputsModified
 
 	maintenanceLEDsState = state
@@ -95,15 +104,15 @@ def reset(board: pymata4.Pymata4) -> None:
 	global trafficStage, trafficStageTimer, lastUpdateTime, currentStageTime
 	global mainLightStates, sideLightStates, pedLightStates, overHeightBuzzerState, overHeightLEDState, maintenanceLEDsState, stage4BuzzerState, stage5BuzzerState, outputsModified
 	global overHeightBuzzerTimer, overHeightLEDTimer
-	global sevenSegRefreshes
+	global sevenSegRefreshes, yellowLightExtensionUsed
 	
 	trafficStage = 0
 	trafficStageTimer = stageTimes[0]
 	currentStageTime = 0
 	lastUpdateTime = time.time()
 	sevenSegRefreshes = 0
+	yellowLightExtensionUsed = False
 
-	reset(board)
 	for i in range(3):
 		mainLightStates[i] = 0
 		sideLightStates[i] = 0
@@ -119,8 +128,9 @@ def reset(board: pymata4.Pymata4) -> None:
 
 	overHeightBuzzerTimer = -1
 	overHeightLEDTimer = -1
+	outputsModified = True
 
-	write_outputs(board, True)
+	SevenSeg.reset(board)
 
 
 def write_outputs(board: pymata4.Pymata4, forceWrite: bool = False):
@@ -147,45 +157,47 @@ def write_outputs(board: pymata4.Pymata4, forceWrite: bool = False):
 	sequence.append(stage4BuzzerState)
 	sequence.append(stage5BuzzerState)
 
-	ShiftReg.write_shift_reg(board, auxSerPin, auxSrClkPin, auxRClkPin, sequence, True)
+	ShiftReg.write_shift_reg(board, auxSerPin, auxSrClkPin, sequence, True)
+	ShiftReg.display_output(board, auxRClkPin)
 
 	outputsModified = False
 
 
 def get_main_light_state() -> int:
+	"""Gets the current state of the main road traffic lights.
+	
+	:returns: Main traffic light state. 0 is red, 1 is yellow, 2 is green.
+	"""
 	return lightStates[trafficStage][0]
 
 
 def update_traffic_stage(deltaTime: float) -> None:
-	"""Returns the current traffic stage (1-6) based on the time spent in normal operation mode.
+	"""Updates the current traffic stage.
 	
-	:param normalModeTime: Time spent in normal operation mode.
-
-	:returns: (traffic stage, time in current stage, time until next stage).
-	Current traffic stage is given as an int, 1-6.
-	Time in current traffic stage and time until next traffic stage are given in seconds, as floats.
+	:param deltaTime: Time since the last call to this function.
 	"""
 
 	global trafficStageTimer, trafficStage, currentStageTime
-	global sevenSegRefreshes
+	global sevenSegRefreshes, yellowLightExtensionUsed
 
 	trafficStageTimer -= deltaTime
 
 	if trafficStageTimer < 0:
-		print(f"Nominal 7-segment refresh rate: {currentStageTime / sevenSegRefreshes:.2f} Hz.")
+		if sevenSegRefreshes:
+			print(f"Nominal 7-segment refresh rate: {sevenSegRefreshes / currentStageTime:.2f} Hz.")
 
 		trafficStage += 1
 		trafficStage %= len(stageTimes)
-		trafficStageTimer += stageTimes[trafficStage]
+		trafficStageTimer = stageTimes[trafficStage]
 		currentStageTime = 0
 		sevenSegRefreshes = 0
+		yellowLightExtensionUsed = False
 
 
-def update(board: pymata4.Pymata4) -> None:
+def update(board: pymata4.Pymata4, vehicleDistace: float, vehicleHeight: float) -> None:
 	"""Operates outputs of the system.
 	
 	:param board: arduino board
-	:param normalModeTime: Time spent in normal operating mode, in seconds (float)
 	"""
 
 	global mainLightStates, sideLightStates, pedLightStates, outputsModified, lastUpdateTime
@@ -193,15 +205,15 @@ def update(board: pymata4.Pymata4) -> None:
 	global overHeightBuzzerState, overHeightBuzzerTimer
 	global overHeightLEDState, overHeightLEDTimer
 	global stage4BuzzerState, stage5BuzzerState
-	global sevenSegRefreshes
+	global sevenSegRefreshes, yellowLightExtensionUsed
 	
 	deltaTime = time.time() - lastUpdateTime
 	lastUpdateTime = time.time()
 	currentStageTime += deltaTime
 
 	# In stage 1, set remaining time to 5 seconds if one of the ped buttons is pressed
-	pedButtonPressed = InputsSubsystem.pedestrian_button_pressed(board, 0) or \
-		InputsSubsystem.pedestrian_button_pressed(board, 1)
+	pedButtonPressed = InputsSubsystem.pedestrian_button_pressed(0) or \
+		InputsSubsystem.pedestrian_button_pressed(1)
 
 	if trafficStage == 0 and pedButtonPressed:
 		trafficStageTimer = min(trafficStageTimer, 5)
@@ -222,9 +234,12 @@ def update(board: pymata4.Pymata4) -> None:
 		stage5BuzzerState = int(trafficStage == 4)
 
 		outputsModified = True
-
-	sevenSegMessage = f"SG {trafficStage + 1}: {str(int(stageTimes[trafficStage] - currentStageTime)):2d} s"
-	sevenSegMessage += f" - {InputsSubsystem.get_LDR_reading() / 1023:3.0f}"
+		
+	sevenSegMessage = f"SG {trafficStage + 1} {str(int(trafficStageTimer)).rjust(2)}s "
+	if InputsSubsystem.is_night(board):
+		sevenSegMessage += "night"
+	else:
+		sevenSegMessage += "day"
 	SevenSeg.set_message(sevenSegMessage, False)
 
 	blinkState = (currentStageTime % (1 / blinkFrequency)) * blinkFrequency < 0.5
@@ -232,7 +247,7 @@ def update(board: pymata4.Pymata4) -> None:
 		pedLightStates[1] = blinkState
 		outputsModified = True
 	
-	if InputsSubsystem.get_vehicle_height(board) > heightLimit:
+	if vehicleHeight > heightLimit:
 		overHeightBuzzerTimer = 2
 		overHeightLEDTimer = 6
 
@@ -247,8 +262,9 @@ def update(board: pymata4.Pymata4) -> None:
 			overHeightLEDState = 1
 			outputsModified = True
 
-	if get_main_light_state() == 1 and InputsSubsystem.get_vehicle_distance(board) < yellowLightExtensionDistance:
-		trafficStageTimer = max(trafficStageTimer, 3)
+	if get_main_light_state() == 1 and vehicleDistace < yellowLightExtensionDistance and not yellowLightExtensionUsed:
+		trafficStageTimer += 3
+		yellowLightExtensionUsed = True
 
 	if overHeightBuzzerTimer > 0:
 		overHeightBuzzerTimer -= deltaTime
@@ -263,7 +279,7 @@ def update(board: pymata4.Pymata4) -> None:
 		if overHeightLEDTimer <= 0:
 			overHeightLEDState = 0
 			outputsModified = True
-
+			
 	write_outputs(board)
 
 	prevSevenSegChar = SevenSeg.lastCharDisplayed

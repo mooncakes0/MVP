@@ -10,19 +10,21 @@ from pymata4 import pymata4
 
 # Hardware constants
 pedestianButtonPins = [14, 15] # A0 and A1
-ldrPin = 16 # A2
+ldrPin = 2 # A2
 modeSwitchPin = 6
 
 ultrasonicTriggers = [2, 4]
 ultrasonicEchos = [3, 5]
 
 # Subsystem constants
-numUltrasonicReadings = 15
+numUltrasonicReadings = 5
 debounceTime = 0.1
 sensorHeight = 28
+nightThreshold = 800
 
 # Subsystem variables
 previousButtonStates = [0, 0]
+buttonStates = [0, 0]
 lastButtonChangeTimes = [0, 0]
 
 
@@ -33,16 +35,36 @@ def init(board: pymata4.Pymata4) -> None:
 	"""
 
 	global lastButtonChangeTimes
-
+	
 	for i in range(2):
-		board.set_pin_mode_sonar(ultrasonicTriggers[i], ultrasonicEchos[i])
+		board.set_pin_mode_sonar(ultrasonicTriggers[i], ultrasonicEchos[i], timeout=10000)
 
 	board.set_pin_mode_digital_input(pedestianButtonPins[0])
 	board.set_pin_mode_digital_input(pedestianButtonPins[1])
 	board.set_pin_mode_digital_input(modeSwitchPin)
-	board.set_pin_mode_analog_input(ldrPin)
+	board.set_pin_mode_analog_input(ldrPin, differential=1000)
 
 	lastButtonChangeTimes = [time.time() - debounceTime] * 2
+
+
+def update(board: pymata4.Pymata4) -> None:
+	"""Updates input parameters.
+	
+	:param board: Pymata4 board.
+	"""
+
+	global previousButtonStates, buttonStates, lastButtonChangeTimes
+
+	for i in range(2):
+		previousButtonStates[i] = buttonStates[i]
+
+		if time.time() < lastButtonChangeTimes[i] + debounceTime:
+			continue
+		
+		buttonStates[i] = board.digital_read(pedestianButtonPins[i])[0]
+		if buttonStates[i] != previousButtonStates[i]:
+			previousButtonStates[i] = buttonStates[i]
+			lastButtonChangeTimes[i] = time.time()
 
 
 def get_filtered_ultrasonic(board: pymata4.Pymata4, ultrasonicIndex: int) -> float | None:
@@ -71,7 +93,7 @@ def get_filtered_ultrasonic(board: pymata4.Pymata4, ultrasonicIndex: int) -> flo
 	return average
 
 
-def pedestrian_button_pressed(board: pymata4.Pymata4, button: int) -> bool:
+def pedestrian_button_pressed(button: int) -> bool:
 	"""Returns whether the pedestrian button was pressed since the last call of this function.
 	Debounces the button input in the process.
 	
@@ -81,33 +103,57 @@ def pedestrian_button_pressed(board: pymata4.Pymata4, button: int) -> bool:
 	:returns: Whether or not the button was pressed.
 	"""
 
-	global previousButtonStates, lastButtonChangeTimes
+	return buttonStates[button] and not previousButtonStates[button]
 
-	if time.time() < lastButtonChangeTimes[button] + debounceTime:
-		return False
+
+def get_vehicle_distance(board: pymata4.Pymata4) -> float:
+	"""Returns the distance to the next vehicle, in cm.
 	
-	currentState = board.digital_read(pedestianButtonPins[button])[0]
-	if currentState != previousButtonStates[button]:
-		previousButtonStates[button] = currentState
-		lastButtonChangeTimes[button] = time.time()
-		# return True if the button is currently pressed
-		# this code is only reached if the button state changed
-		if currentState == 1:
-			return True
-	return False
+	:param board: Pymata4 board.
+
+	:returns: Distance to vehicle, in cm, or 0 if the readings were faulty
+	"""
+
+	reading = get_filtered_ultrasonic(board, 0)
+
+	if reading is None:
+		return 0
+
+	return reading
 
 
-def get_vehicle_distance(board: pymata4.Pymata4) -> float|None:
-	return get_filtered_ultrasonic(board, 0)
+def get_vehicle_height(board: pymata4.Pymata4) -> float:
+	"""Returns the heihgt of the next vehicle, in cm.
+	
+	:param board: Pymata4 board.
 
+	:returns: Height of vehicle, in cm. Will return a height of zero if the reading were faulty.
+	"""
+	reading = get_filtered_ultrasonic(board, 1)
 
-def get_vehicle_height(board: pymata4.Pymata4) -> float|None:
-	return sensorHeight - get_filtered_ultrasonic(board, 1)
+	if reading is None:
+		return 0
+	
+	return sensorHeight - reading
 
 
 def get_mode_switch_state(board: pymata4.Pymata4) -> bool:
+	"""Returns whether the mode override switch has been turned on.
+	
+	:param board: Pymata4 board.
+
+	:returns: Mode override switch state.
+	"""
 	return board.digital_read(modeSwitchPin)[0]
 
 
-def get_LDR_reading(board: pymata4.Pymata4) -> float:
-	return board.analog_read(ldrPin - 14)[0]
+def is_night(board: pymata4.Pymata4) -> bool:
+	"""Checks whether it is currently night.
+	
+	:param board: Pymata4 board.
+
+	:returns: Whether it is currently night or not.
+	"""
+
+	ldrReading = board.analog_read(ldrPin)[0]
+	return ldrReading > nightThreshold

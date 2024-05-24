@@ -62,7 +62,7 @@ lookupTable: dict[str, tuple[int]] = {
 lastCharDisplayed = 0
 currentMessage = ' ' * 4
 messageStartTime = 0
-messageScrollSpeed = 0.3
+messageScrollSpeed = 0.7
 
 serPin = 7
 srClkPin = 8
@@ -118,43 +118,49 @@ def update(board: pymata4.Pymata4) -> None:
 	subMessage = currentMessage[messageScroll:]
 
 	currentChar = subMessage[lastCharDisplayed]
-	charSequence = (0) * 8
+	charSequence = [0] * 7
 	if currentChar in lookupTable:
 		charSequence = lookupTable[currentChar]
 	elif currentChar.swapcase() in lookupTable:
 		charSequence = lookupTable[currentChar.swapcase()]
 	
+	ShiftReg.write_shift_reg(board, serPin, srClkPin, charSequence, True)
+
 	for pin in digitPins:
 		board.digital_write(pin, 1)
-	ShiftReg.write_shift_reg(board, serPin, srClkPin, rClkPin, charSequence, True)
+	ShiftReg.display_output(board, rClkPin)
 	board.digital_write(digitPins[lastCharDisplayed], 0)
 
 	lastCharDisplayed += 1
 	lastCharDisplayed %= 4
 
 
-def shutdown(board: pymata4.Pymata4) -> None:
+def reset(board: pymata4.Pymata4) -> None:
 	"""Clears the output of the seven segment display.
 	
 	:param board: Pymata board
 	"""
+
+	global messageStartTime
+
 	for pin in digitPins:
 		board.digital_write(pin, 1)
-	ShiftReg.write_shift_reg(board, serPin, srClkPin, rClkPin, [0] * 8)
+	ShiftReg.write_shift_reg(board, serPin, srClkPin, [0] * 7)
+	ShiftReg.display_output(board, rClkPin)
+
+	messageStartTime = time.time()
 
 if __name__ == "__main__":
 	board = pymata4.Pymata4()
 
-	board.set_pin_mode_digital_output(serPin)
-	board.set_pin_mode_digital_output(srClkPin)
-	board.set_pin_mode_digital_output(rClkPin)
-	for pin in digitPins:
-		board.set_pin_mode_digital_output(pin)
-
 	time.sleep(1)
+
+	init(board)
 
 	set_message("HELLO I LIVE")
 	# set_message("1234567890")
+
+	# board.set_pin_mode_analog_input(0)
 
 	try:
 		while True:
@@ -162,6 +168,7 @@ if __name__ == "__main__":
 	except KeyboardInterrupt:
 		pass
 
-	shutdown(board)
-	time.sleep(0.5)
+	print("Shutting down...")
+	reset(board)
+	time.sleep(1)
 	board.shutdown()
